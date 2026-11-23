@@ -1,0 +1,31 @@
+@import "tailwindcss";
+
+/*
+ * Typography system
+ * One family for the whole product. Plus Jakarta Sans for Latin, Hind Siliguri as the Bangla/Unicode
+ * fallback so Bangla text never falls back to a mismatched system font.
+ *
+ *   Display (hero, page titles)   500   tight tracking
+ *   Section headings              600   clamp(28px, 3.4vw, 44px)
+ *   Subheadings / card titles     600   16–20px
+ *   Body                          400   15px / 1.65
+ *   Labels, product meta          500   12–13px
+ *   Buttons                       600   13–14px
+ *   Admin                         same family, smaller scale (admin.css)
+ */
+@theme {
+  --font-sans: 'Plus Jakarta Sans', 'Hind Siliguri', 'Noto Sans Bengali', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  /* The legacy `font-serif` utility now resolves to the same family, so there is a single typeface everywhere. */
+  --font-serif: 'Plus Jakarta Sans', 'Hind Siliguri', 'Noto Sans Bengali', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-mono: 'Plus Jakarta Sans', 'Hind Siliguri', 'Noto Sans Bengali', system-ui, sans-serif;
+}
+
+:root {
+  --font-ui: 'Plus Jakarta Sans', 'Hind Siliguri', 'Noto Sans Bengali', system-ui, -apple-system, 'Segoe UI', sans-serif;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+}
