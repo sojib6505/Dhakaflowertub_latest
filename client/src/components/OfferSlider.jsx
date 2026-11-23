@@ -1,146 +1,235 @@
+
 import { useEffect, useState } from 'react'
-import { ArrowUpRight, Check, ChevronLeft, ChevronRight, MessageCircle } from 'lucide-react'
+import { Check, MessageCircle } from 'lucide-react'
 import { optimizeImageUrl } from '../utils/images'
 import { getWhatsAppLink } from '../utils/whatsapp'
 
-const prefersReducedMotion = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches
+const prefersReducedMotion = () =>
+  typeof window !== 'undefined' &&
+  window.matchMedia('(prefers-reduced-motion: reduce)').matches
 
 export default function OfferSlider({ offers = [] }) {
   const [currentIndex, setCurrentIndex] = useState(0)
   const [isPaused, setIsPaused] = useState(false)
 
-  // Offers can be removed or paused in the admin, so keep the index inside the current list.
-  const safeIndex = offers.length ? Math.min(currentIndex, offers.length - 1) : 0
+  const totalOffers = offers.length
 
-  // Auto-advance every 6 seconds unless paused, or the visitor prefers reduced motion.
   useEffect(() => {
-    if (!offers || offers.length <= 1 || isPaused || prefersReducedMotion()) return undefined
+    if (totalOffers <= 1 || isPaused || prefersReducedMotion()) {
+      return undefined
+    }
 
     const interval = window.setInterval(() => {
-      setCurrentIndex((prev) => (prev + 1) % offers.length)
-    }, 6000)
+      setCurrentIndex((prev) => (prev + 1) % totalOffers)
+    }, 2000)
 
     return () => window.clearInterval(interval)
-  }, [offers, isPaused])
+  }, [totalOffers, isPaused])
 
-  if (!offers || offers.length === 0) {
-    return null
+  if (!totalOffers) return null
+
+  const visibleCount = Math.min(5, totalOffers)
+  const middlePosition = Math.floor(visibleCount / 2)
+
+  const visibleOffers = Array.from(
+    { length: visibleCount },
+    (_, position) => {
+      const offset = position - middlePosition
+      const offerIndex =
+        (currentIndex + offset + totalOffers) % totalOffers
+
+      return { offer: offers[offerIndex], offerIndex, offset }
+    }
+  )
+
+  const handleBlur = (event) => {
+    if (!event.currentTarget.contains(event.relatedTarget)) {
+      setIsPaused(false)
+    }
   }
-
-  const currentOffer = offers[safeIndex]
-
-  const handlePrev = () => setCurrentIndex((safeIndex - 1 + offers.length) % offers.length)
-  const handleNext = () => setCurrentIndex((safeIndex + 1) % offers.length)
-
-  const discountLabel = currentOffer.discountValue > 0 && currentOffer.discountType !== 'none'
-    ? currentOffer.discountType === 'percentage'
-      ? `${currentOffer.discountValue}% off`
-      : `Save ৳ ${currentOffer.discountValue.toLocaleString()}`
-    : ''
 
   return (
     <section
       className="section offers"
       id="offers"
+      aria-label="Exclusive offer packages"
       aria-roledescription="carousel"
-      aria-label="Special offer packages"
       onMouseEnter={() => setIsPaused(true)}
       onMouseLeave={() => setIsPaused(false)}
       onFocus={() => setIsPaused(true)}
-      onBlur={() => setIsPaused(false)}
+      onBlur={handleBlur}
     >
-      <div className="section-inner">
-        <header className="section-head" data-reveal>
-          <div className="section-head-copy">
-            <h2 className="section-title">Exclusive offer packages</h2>
-            <p className="section-lead">
-              Curated planter bundles and architectural sets at workshop-direct prices.
-            </p>
-          </div>
+      <div className="section-inner offers-inner">
 
-          {offers.length > 1 && (
-            <div className="slider-nav-controls">
-              <button type="button" className="slider-nav-btn" onClick={handlePrev} aria-label="Previous offer package">
-                <ChevronLeft size={18} />
-              </button>
+        <header className="offers-heading">
+          <span className="offers-eyebrow">
+            DHAKA FLOWER TUB COLLECTION
+          </span>
 
-              <div className="slider-nav-dots" role="group" aria-label="Select offer package">
-                {offers.map((offer, idx) => (
-                  <button
-                    key={offer._id || offer.slug || idx}
-                    type="button"
-                    className={`slider-nav-dot ${idx === safeIndex ? 'is-active' : ''}`}
-                    onClick={() => setCurrentIndex(idx)}
-                    aria-label={`Show offer ${idx + 1} of ${offers.length}`}
-                    aria-current={idx === safeIndex}
-                  />
-                ))}
-              </div>
+          <h2 className="section-title flex justify-center">
+            Exclusive Offer Packages
+          </h2>
 
-              <button type="button" className="slider-nav-btn" onClick={handleNext} aria-label="Next offer package">
-                <ChevronRight size={18} />
-              </button>
-            </div>
-          )}
+          <p className="section-lead">
+            Beautiful greenery and thoughtfully curated
+            collections for your spaces.
+          </p>
         </header>
 
-        <article
-          className="offer-card"
-          key={currentOffer._id || currentOffer.slug || safeIndex}
-          aria-roledescription="slide"
-          aria-label={`${safeIndex + 1} of ${offers.length}`}
-        >
-          <div className="offer-media">
-            <img
-              src={optimizeImageUrl(currentOffer.image?.url, 1100)}
-              alt={currentOffer.image?.alt || currentOffer.title}
-            />
-            {currentOffer.badge && <span className="offer-badge">{currentOffer.badge}</span>}
-          </div>
+        <div className="offer-carousel">
+          <div className="offer-product-track">
 
-          <div className="offer-body">
-            <div className="offer-heading">
-              <h3 className="offer-title">{currentOffer.title}</h3>
-              {currentOffer.subtitle && <p className="offer-subtitle">{currentOffer.subtitle}</p>}
+            {visibleOffers.map(({ offer, offerIndex, offset }) => {
+              const isCenter = offset === 0
+
+              const discountLabel =
+                offer.discountValue > 0 &&
+                offer.discountType !== 'none'
+                  ? offer.discountType === 'percentage'
+                    ? `${offer.discountValue}% OFF`
+                    : `SAVE ৳${offer.discountValue.toLocaleString()}`
+                  : ''
+
+              const imageUrl = optimizeImageUrl(
+                offer.image?.url,
+                900
+              )
+
+              return (
+                <article
+                  key={offer._id || offer.slug || offerIndex}
+                  className={`offer-product-card position-${offset} ${
+                    isCenter ? 'is-center' : ''
+                  }`}
+                  aria-roledescription="slide"
+                  aria-label={`${offer.title}, ${offerIndex + 1} of ${totalOffers}`}
+                  aria-hidden={!isCenter}
+                  style={{
+                    '--offer-image': `url("${imageUrl}")`,
+                  }}
+                >
+
+                  {/* Full Background Image */}
+                  <div className="offer-card-background" />
+
+                  {/* Glass Overlay */}
+                  <div className="offer-glass-overlay" />
+
+                  {/* Offer Content */}
+                  <div className="offer-product-content">
+
+                    <div className="offer-card-top">
+                      {offer.badge && (
+                        <span className="offer-product-badge">
+                          {offer.badge}
+                        </span>
+                      )}
+
+                      {discountLabel && (
+                        <span className="offer-product-discount">
+                          {discountLabel}
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="offer-card-details">
+
+                      <h3 className="offer-product-title">
+                        {offer.title}
+                      </h3>
+{/* 
+                      {offer.subtitle && (
+                        <p className="offer-product-subtitle">
+                          {offer.subtitle}
+                        </p>
+                      )} */}
+
+                      {/* {offer.description && (
+                        <p className="offer-product-description">
+                          {offer.description}
+                        </p>
+                      )} */}
+{/* 
+                      {offer.features?.length > 0 && (
+                        <ul className="offer-product-features">
+                          {offer.features
+                            .slice(0, isCenter ? 3 : 2)
+                            .map((feature, index) => (
+                              <li key={`${feature}-${index}`}>
+                                <span className="offer-check">
+                                  <Check size={13} />
+                                </span>
+                                <span>{feature}</span>
+                              </li>
+                            ))}
+                        </ul>
+                      )} */}
+
+                      <div className="offer-product-footer">
+
+                        <div className="offer-product-pricing">
+                          {offer.originalPrice > 0 && (
+                            <span className="offer-old-price">
+                              ৳{offer.originalPrice.toLocaleString()}
+                            </span>
+                          )}
+
+                          <span className="offer-current-price">
+                            {offer.priceDisplay ||
+                              `৳${offer.offerPrice?.toLocaleString()}`}
+                          </span>
+                        </div>
+
+                        <a
+                          href={getWhatsAppLink(offer, 'offer')}
+                          className="offer-whatsapp-btn"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          aria-label={`Order ${offer.title} on WhatsApp`}
+                        >
+                          <MessageCircle size={16} />
+                          <span>
+                            {isCenter ? 'Order on WhatsApp' : 'WhatsApp'}
+                          </span>
+                        </a>
+
+                      </div>
+                    </div>
+                  </div>
+                </article>
+              )
+            })}
+
+          </div>
+        </div>
+
+        {totalOffers > 1 && (
+          <div className="offer-pagination">
+            <div className="offer-pagination-dots">
+              {offers.map((offer, index) => (
+                <button
+                  key={offer._id || offer.slug || index}
+                  type="button"
+                  className={`offer-pagination-dot ${
+                    index === currentIndex ? 'active' : ''
+                  }`}
+                  onClick={() => setCurrentIndex(index)}
+                  aria-label={`Show offer ${index + 1}`}
+                  aria-current={
+                    index === currentIndex ? 'true' : undefined
+                  }
+                />
+              ))}
             </div>
 
-            {currentOffer.description && <p className="offer-desc">{currentOffer.description}</p>}
-
-            {currentOffer.features && currentOffer.features.length > 0 && (
-              <ul className="offer-features">
-                {currentOffer.features.map((feature, i) => (
-                  <li key={`${feature}-${i}`}>
-                    <Check size={15} aria-hidden="true" />
-                    <span>{feature}</span>
-                  </li>
-                ))}
-              </ul>
-            )}
-
-            <div className="offer-foot">
-              <div className="offer-price">
-                {currentOffer.originalPrice > 0 && (
-                  <span className="offer-price-was">৳ {currentOffer.originalPrice.toLocaleString()}</span>
-                )}
-                <span className="offer-price-now">
-                  {currentOffer.priceDisplay || `৳ ${currentOffer.offerPrice?.toLocaleString()}`}
-                </span>
-                {discountLabel && <span className="offer-discount">{discountLabel}</span>}
-              </div>
-
-              <a
-                className="offer-cta"
-                href={getWhatsAppLink(currentOffer, 'offer')}
-                target="_blank"
-                rel="noreferrer"
-              >
-                <MessageCircle size={17} />
-                <span>Order on WhatsApp</span>
-                <ArrowUpRight size={16} />
-              </a>
-            </div>
+            <span className="offer-pagination-count">
+              {String(currentIndex + 1).padStart(2, '0')}
+              {' / '}
+              {String(totalOffers).padStart(2, '0')}
+            </span>
           </div>
-        </article>
+        )}
+
       </div>
     </section>
   )

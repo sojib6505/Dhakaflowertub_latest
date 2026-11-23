@@ -103,14 +103,14 @@ function App() {
   );
 
   // Products carry the stable category key; attach the current display name for the UI.
-  // const products = useMemo(
-  //   () =>
-  //     rawProducts.map((product) => ({
-  //       ...product,
-  //       categoryName: categoryByKey[product.category]?.name || product.category,
-  //     })),
-  //   [rawProducts, categoryByKey]
-  // );
+  const products = useMemo(
+    () =>
+      rawProducts.map((product) => ({
+        ...product,
+        categoryName: categoryByKey[product.category]?.name || product.category,
+      })),
+    [rawProducts, categoryByKey]
+  );
 
   // One card per category, each with one representative product image.
   const categoryCards = useMemo(() => {
@@ -309,53 +309,7 @@ function App() {
           </div>
 
           {/* Hero Bottom Shelf (InPlant Bottom Row) */}
-          <div className="hero-bottom-shelf">
-            {/* Left Highlight Card */}
-            {featuredProduct && (
-              <div className="hero-highlight-card">
-                <div className="hero-highlight-img-wrap">
-                  <img
-                    src={featuredProduct.images?.[0]?.url}
-                    alt={featuredProduct.name}
-                  />
-                </div>
-                <div className="hero-highlight-body">
-                  <h4>{featuredProduct.name}</h4>
-                  <p>{featuredProduct.shortDescription || "Minimalist concrete finish with integrated drainage."}</p>
-                </div>
-                <div className="hero-highlight-foot">
-                  <span className="highlight-price">{formatPrice(featuredProduct)}</span>
-                  <button
-                    type="button"
-                    className="highlight-btn"
-                    onClick={() => setSelectedProduct(featuredProduct)}
-                  >
-                    View Details <ArrowUpRight size={14} />
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {/* Right Mini Cards Row */}
-            <div className="hero-quick-row">
-              {heroShelfProducts.map((p) => (
-                <div
-                  key={p._id || p.slug}
-                  className="hero-mini-card"
-                  onClick={() => setSelectedProduct(p)}
-                >
-                  <div className="mini-card-thumb">
-                    <img src={p.images?.[0]?.url} alt={p.name} />
-                  </div>
-                  <div className="mini-card-info">
-                    <p className="mini-card-category">{p.categoryName}</p>
-                    <h4 className="mini-card-title">{p.name}</h4>
-                    <p className="mini-card-price">{formatPrice(p)}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
+        
         </section>
 
         {/* Special offers (managed from the admin dashboard) */}
