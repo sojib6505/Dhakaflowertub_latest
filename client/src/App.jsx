@@ -103,14 +103,14 @@ function App() {
   );
 
   // Products carry the stable category key; attach the current display name for the UI.
-  const products = useMemo(
-    () =>
-      rawProducts.map((product) => ({
-        ...product,
-        categoryName: categoryByKey[product.category]?.name || product.category,
-      })),
-    [rawProducts, categoryByKey]
-  );
+  // const products = useMemo(
+  //   () =>
+  //     rawProducts.map((product) => ({
+  //       ...product,
+  //       categoryName: categoryByKey[product.category]?.name || product.category,
+  //     })),
+  //   [rawProducts, categoryByKey]
+  // );
 
   // One card per category, each with one representative product image.
   const categoryCards = useMemo(() => {
