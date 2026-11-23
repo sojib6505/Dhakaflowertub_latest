@@ -303,7 +303,7 @@ button, input, select, textarea { font: inherit; }
 
     margin: 0 auto;
 
-    padding: 24px 5vw;
+    padding: 14px 5vw;
 
     position: relative;
 
@@ -1086,12 +1086,12 @@ button, input, select, textarea { font: inherit; }
     --ease-out: cubic-bezier(0.22, 0.61, 0.36, 1);
 }
 
-html { scroll-padding-top: 84px; }
+html { scroll-padding-top: 44px; }
 
 .section {
     position: relative;
     z-index: 2;
-    padding-top: var(--section-space);
+    
 }
 
 .section-inner {
@@ -1183,10 +1183,10 @@ html { scroll-padding-top: 84px; }
     border-radius: 999px;
     color: var(--green);
     cursor: pointer;
-    font-size: 13px;
+    font-size: 12px;
     font-weight: 600;
     min-height: 44px;
-    padding: 0 20px;
+    padding: 0 10px;
     transition: border-color 0.2s ease, background 0.2s ease;
 }
 .view-details-button:hover,
@@ -1314,7 +1314,7 @@ html { scroll-padding-top: 84px; }
 .search-clear { background: none; border: 0; color: var(--muted); cursor: pointer; display: flex; padding: 4px; }
 .search-clear:hover { color: var(--green); }
 
-.category-cards-grid { display: grid; gap: 20px; grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.category-cards-grid { display: grid; gap: 10px; grid-template-columns: repeat(4, minmax(0, 1fr)); }
 .category-select-card {
     background: #fff;
     border: 1px solid var(--line);
@@ -1322,7 +1322,7 @@ html { scroll-padding-top: 84px; }
     color: inherit;
     cursor: pointer;
     display: flex;
-    flex-direction: column;
+    flex-direction: collumn;
     overflow: hidden;
     padding: 0;
     text-align: left;
@@ -1333,7 +1333,7 @@ html { scroll-padding-top: 84px; }
 .category-thumb-frame { aspect-ratio: 4 / 3; background: var(--mist); display: block; overflow: hidden; }
 .category-thumb-img { display: block; height: 100%; object-fit: cover; width: 100%; }
 .category-card-body { display: flex; flex-direction: column; gap: 4px; padding: 16px 18px 18px; }
-.category-name-title { color: var(--ink); font-size: 17px; font-weight: 600; letter-spacing: -0.01em; }
+.category-name-title { color: var(--ink); font-size: 12px; font-weight: 600; letter-spacing: -0.01em; }
 .category-desc { color: var(--muted); font-size: 13px; line-height: 1.5; }
 .category-count-label { color: var(--green); font-size: 12px; font-weight: 500; margin-top: 6px; }
 
@@ -1379,20 +1379,20 @@ html { scroll-padding-top: 84px; }
     position: absolute;
     top: 12px;
 }
-.product-info { display: flex; flex: 1; flex-direction: column; gap: 4px; padding: 16px 2px 0; }
+.product-info { display: flex; flex: 1; flex-direction: column; gap: 1px; padding: 16px 2px 0; }
 .product-category { color: var(--muted); font-size: 12px; font-weight: 500; margin: 0; }
 .product-card h3 {
     -webkit-box-orient: vertical;
     -webkit-line-clamp: 2;
     display: -webkit-box;
-    font-size: 16px;
+    font-size: 14px;
     font-weight: 600;
     letter-spacing: -0.01em;
     line-height: 1.35;
     margin: 0;
     overflow: hidden;
 }
-.product-price { color: var(--green); font-size: 14px; font-weight: 600; margin: 4px 0 0; }
+.product-price { color: var(--green); font-size: 12px; font-weight: 600; margin: 2px 0 0; }
 .product-actions { display: grid; gap: 8px; grid-template-columns: 1fr 1fr; margin-top: auto; padding-top: 16px; }
 .product-actions .view-details-button,
 .product-actions .product-contact-button { min-height: 44px; padding: 0 10px; }

@@ -66,7 +66,8 @@ export default function OfferSlider({ offers = [] }) {
             DHAKA FLOWER TUB COLLECTION
           </span>
 
-          <h2 className="section-title flex justify-center">
+          <h2 className=" text-[#294432] text-3xl md:text-5xl font-serif font-bold text;
+   text-center">
             Exclusive Offer Packages
           </h2>
 

@@ -155,14 +155,23 @@ function App() {
   }, [products]);
 
   // Corporate image slider timer (skipped for visitors who prefer reduced motion)
-  useEffect(() => {
-    if (!autoPlayCorporateImages) return undefined;
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return undefined;
-    const interval = window.setInterval(() => {
-      setActiveCorporateImage((curr) => (curr + 1) % CORPORATE_IMAGES.length);
-    }, 5000);
-    return () => window.clearInterval(interval);
-  }, [autoPlayCorporateImages]);
+useEffect(() => {
+  if (!autoPlayCorporateImages || CORPORATE_IMAGES.length <= 1) {
+    return undefined;
+  }
+
+  if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+    return undefined;
+  }
+
+  const interval = window.setInterval(() => {
+    setActiveCorporateImage(
+      (curr) => (curr + 1) % CORPORATE_IMAGES.length
+    );
+  }, 2000);
+
+  return () => window.clearInterval(interval);
+}, [autoPlayCorporateImages]);
 
   const currentCorporateImage = CORPORATE_IMAGES[activeCorporateImage];
   const moveCorporateImage = (direction) => {
@@ -172,11 +181,24 @@ function App() {
     );
   };
 
+  // const handleSelectCategory = (categoryKey) => {
+  //   setActiveCategory(categoryKey);
+  //   setShowAllProducts(false);
+  //   setSearch("");
+  // };
+
   const handleSelectCategory = (categoryKey) => {
-    setActiveCategory(categoryKey);
-    setShowAllProducts(false);
-    setSearch("");
-  };
+  setActiveCategory(categoryKey);
+  setShowAllProducts(false);
+  setSearch("");
+
+  setTimeout(() => {
+    document.getElementById("product-panel")?.scrollIntoView({
+      behavior: "smooth",
+      block: "start",
+    });
+  }, 100);
+};
 
   const handleToggleAllProducts = () => {
     setShowAllProducts((prev) => !prev);
@@ -188,7 +210,8 @@ function App() {
       {/* Global Atmospheric Mist & Ambient Animation */}
       <AtmosphericBackground />
 
-      <header className={isScrolled ? "site-header is-scrolled" : "site-header"}>
+     
+<header className={isScrolled ? "site-header is-scrolled" : "site-header"}>
         <a href="#top" aria-label="Dhaka Flower Tub home">
           <Logo />
         </a>
@@ -234,7 +257,8 @@ function App() {
         >
           {menuOpen ? <X size={22} /> : <Menu size={22} />}
         </button>
-      </header>
+      </header>    
+
 
       <main id="top">
         {/* ========================================================
@@ -309,18 +333,18 @@ function App() {
           </div>
 
           {/* Hero Bottom Shelf (InPlant Bottom Row) */}
-        
+          
         </section>
 
         {/* Special offers (managed from the admin dashboard) */}
         <OfferSlider offers={offerPackages} />
 
         {/* Collections: four business categories + shared product display */}
-        <section className="section collections" id="categories">
+        <section className="section pt-10 collections" id="categories">
           <div className="section-inner">
             <header className="section-head" data-reveal>
-              <div className="section-head-copy">
-                <h2 className="section-title">Browse by category</h2>
+              <div className="section-head-copy mt-0">
+                <h2 className="text-3xl font-bold">Browse by category</h2>
                 <p className="section-lead">
                   Select a category to see its pieces below.
                 </p>
@@ -347,39 +371,56 @@ function App() {
               </div>
             </header>
 
-            <div className="category-cards-grid" role="tablist" aria-label="Product categories" data-reveal>
-              {categoryCards.map((cat) => {
-                const isSelected = !showAllProducts && !search && activeCategory === cat.key;
+          <div
+  className="grid grid-cols-4 lg:grid-cols-7 gap-1.5 sm:gap-2 md:gap-3"
+  role="tablist"
+  aria-label="Product categories"
+  data-reveal
+>
+  {categoryCards.map((cat) => {
+    const isSelected =
+      !showAllProducts && !search && activeCategory === cat.key;
 
-                return (
-                  <button
-                    type="button"
-                    role="tab"
-                    key={cat.key}
-                    aria-selected={isSelected}
-                    aria-controls="product-panel"
-                    onClick={() => handleSelectCategory(cat.key)}
-                    className={`category-select-card ${isSelected ? "is-active" : ""}`}
-                  >
-                    <span className="category-thumb-frame">
-                      <img
-                        src={optimizeImageUrl(cat.image, 640)}
-                        alt=""
-                        className="category-thumb-img"
-                        loading="lazy"
-                      />
-                    </span>
-                    <span className="category-card-body">
-                      <span className="category-name-title">{cat.name}</span>
-                      {cat.description && <span className="category-desc">{cat.description}</span>}
-                      <span className="category-count-label">
-                        {cat.count} {cat.count === 1 ? "design" : "designs"}
-                      </span>
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
+    return (
+      <button
+        type="button"
+        role="tab"
+        key={cat.key}
+        aria-selected={isSelected}
+        aria-controls="product-panel"
+        onClick={() => handleSelectCategory(cat.key)}
+        className={`min-w-0 overflow-hidden rounded-lg border text-left transition-all duration-200 ${
+          isSelected
+            ? "border-black bg-gray-50 shadow-sm"
+            : "border-gray-200 bg-white hover:border-gray-400 hover:shadow-sm"
+        }`}
+      >
+        <span className="flex h-full min-h-[75px] flex-col justify-center gap-1 p-1.5 sm:min-h-[90px] sm:p-2 md:p-3">
+          {/* Category name */}
+          <span
+            className={`line-clamp-2 text-[10px] font-semibold leading-tight sm:text-xs md:text-sm ${
+              isSelected ? "text-black" : "text-gray-800"
+            }`}
+          >
+            {cat.name}
+          </span>
+
+          {/* Description */}
+          {cat.description && (
+            <span className="line-clamp-2 text-[8px] leading-tight text-gray-500 sm:text-[10px] md:text-xs">
+              {cat.description}
+            </span>
+          )}
+
+          {/* Product count */}
+          <span className="mt-0.5 text-[8px] text-gray-400 sm:text-[10px]">
+            {cat.count} {cat.count === 1 ? "design" : "designs"}
+          </span>
+        </span>
+      </button>
+    );
+  })}
+</div>
 
             <div className="shared-product-display-area" id="product-panel" role="tabpanel">
               <div className="shared-area-header">
@@ -412,7 +453,7 @@ function App() {
                 <p className="catalogue-message">No pieces found for this selection.</p>
               )}
 
-              <div className="shared-product-grid">
+              <div className="grid grid-cols-3 lg:grid-cols-6 gap-3 mb-20 md:mb-30">
                 {displayedProducts.map((product) => (
                   <article className="product-card" key={product._id || product.slug}>
                     <button
@@ -458,12 +499,12 @@ function App() {
         </section>
 
         {/* Brand statement */}
-        <section className="section intro-strip" id="story">
+        <section className="section intro-strip mb-20 md:mb-30" id="story">
           <div className="section-inner intro-grid" data-reveal>
-            <p className="intro-statement">
+            <p className="text:2xl md:text-4xl font-semibold font-sans ">
               Good planters do more than hold a plant. They give a room its rhythm, soften its edges, and make space for slower moments.
             </p>
-            <a
+            <a 
               className="circle-link"
               href={getWhatsAppLink()}
               target="_blank"
@@ -476,24 +517,86 @@ function App() {
         </section>
 
         {/* Workshop film */}
-        <section className="section craft-section" aria-labelledby="business-video-title">
-          <div className="section-inner craft-grid">
-            <div className="craft-copy" data-reveal>
-              <h2 id="business-video-title" className="section-title">
-                Get to know the artistry behind every planter
-              </h2>
-              <p className="section-lead">
-                Discover our production process, material science, and the dedicated craftsmen hand-finishing each architectural piece in Dhaka.
-              </p>
-            </div>
+     <section
+  className="relative overflow-hidden bg-[#03130f] py-20 md:py-28 mb-10 md:mb-30"
+  aria-labelledby="business-video-title"
+>
+  <div className="mx-auto grid max-w-7xl grid-cols-1 items-center gap-14 px-5 sm:px-8 lg:grid-cols-2 lg:gap-20">
 
-            <div className="craft-video" data-reveal>
-              <video controls playsInline preload="metadata" src={BUSINESS_VIDEO.url}>
-                Your browser does not support the video tag.
-              </video>
-            </div>
-          </div>
-        </section>
+    {/* LEFT — Workshop Video */}
+    <div className="relative pb-10" data-reveal>
+
+      {/* Video */}
+      <div className="relative aspect-[1.48/1] overflow-hidden rounded-2xl bg-[#10241c] sm:rounded-3xl">
+        <video
+          id="workshop-video"
+          controls
+          playsInline
+          preload="metadata"
+          src={BUSINESS_VIDEO.url}
+          className="h-full w-full object-cover"
+        >
+          Your browser does not support the video tag.
+        </video>
+      </div>
+
+      {/* Floating Location Badge */}
+      <div className="absolute left-3 top-3 z-10 flex items-center gap-2 rounded-full bg-[#faf8ef]/95 px-4 py-2.5 text-xs font-medium text-[#1c2922] shadow-lg backdrop-blur-md sm:left-5 sm:top-5">
+        <span className="h-2 w-2 rounded-full bg-[#b9c873]" />
+        Uttara · Our Workshop
+      </div>
+
+      {/* Floating Craft Card */}
+      {/* <div className="absolute -right-1 bottom-0 z-10  border-white/5 bg-[#71b69481]  text-[#f4edcf] shadow-2xl sm:-right-3 sm:min-h-[175px] sm:w-[150px] sm:p-4 ">
+
+       <div className="flex flex-col items-start gap-1 w-full">
+         <span className="mb-3 font-serif text-[22px] leading-none tracking-tight text-[#d9c16f] sm:text-[22px]">
+          Handmade
+        </span>
+
+        <p className="text-[12px] leading-relaxed text-white/85 sm:text-[13px]">
+          Crafted with care,
+          finished by hand.
+        </p>
+
+       </div>
+        <div className="mt-4 h-px w-full bg-[#d9c16f]/40" />
+      </div> */}
+    </div>
+
+    {/* RIGHT — Content */}
+    <div data-reveal className="max-w-xl lg:ml-auto">
+
+      <h2
+        id="business-video-title"
+        className="mb-6 font-serif text-[clamp(2.5rem,5vw,4.5rem)] font-normal leading-[1.02] tracking-[-0.04em] text-[#f5f1e7]"
+      >
+        Where Every Planter
+        <br className="hidden sm:block" />
+        {" "}Finds Its Purpose.
+      </h2>
+
+      <p className="mb-8 max-w-lg text-sm leading-8 text-[#eeefe4]/65 sm:text-[15px]">
+        Get to know the artistry behind every planter. Discover our
+        production process, carefully selected materials, and the
+        craftsmanship that brings each piece to life for modern spaces.
+      </p>
+
+      {/* CTA */}
+      <a
+        href="#workshop-video"
+        className="group inline-flex items-center gap-4 rounded-full bg-[#d9b95f] px-6 py-3.5 text-sm font-semibold text-[#152019] transition-all duration-300 hover:-translate-y-0.5 hover:bg-[#e7ca7a] hover:shadow-[0_8px_25px_rgba(217,185,95,0.15)]"
+      >
+        Explore Our Craft
+
+        <span className="inline-block text-lg leading-none transition-transform duration-300 group-hover:-translate-y-0.5 group-hover:translate-x-1">
+          ↗
+        </span>
+      </a>
+    </div>
+
+  </div>
+</section>
 
         {/* Corporate projects */}
         <section
@@ -504,18 +607,22 @@ function App() {
           onMouseLeave={() => setAutoPlayCorporateImages(true)}
         >
           <div className="section-inner">
-            <header className="section-head corporate-heading" data-reveal>
-              <div className="section-head-copy">
-                <h2 id="corporate-corner-title" className="section-title">
+            <header className="flex flex-col items-center pb-5 md:pb-10" >
+              <div className="section-head-copy ">
+                <h2 id="corporate-corner-title" className="text-xl mb-1 md:text-4xl font-bold text-center">
                   Built for business. Designed for longevity.
                 </h2>
               </div>
-              <p className="section-lead">
+              <p className="text-center text-sm md:text-base">
                 A look into our corporate installations for tech headquarters, boutique restaurants, and commercial lobbies.
               </p>
             </header>
 
-            <div className="corporate-slider" aria-label="Corporate image slider" data-reveal>
+          <div
+  className="corporate-slider mx-auto w-full max-w-5xl px-4 sm:px-6 lg:px-8"
+  aria-label="Corporate image slider"
+  data-reveal
+>
               <div className="corporate-slider-frame">
                 <img
                   key={currentCorporateImage.src}
@@ -535,25 +642,28 @@ function App() {
                   <ChevronLeft size={18} />
                 </button>
 
-                <div className="corporate-slider-dots" aria-label="Select image slide">
-                  {CORPORATE_IMAGES.map((image, index) => (
-                    <button
-                      key={`${image.src}-${index}`}
-                      type="button"
-                      className={
-                        activeCorporateImage === index
-                          ? "corporate-slider-dot is-active"
-                          : "corporate-slider-dot"
-                      }
-                      aria-label={`View image ${index + 1}`}
-                      aria-current={activeCorporateImage === index}
-                      onClick={() => {
-                        setAutoPlayCorporateImages(false);
-                        setActiveCorporateImage(index);
-                      }}
-                    />
-                  ))}
-                </div>
+<div
+  className="flex items-center justify-center gap-2"
+  aria-label="Select image slide"
+>
+  {CORPORATE_IMAGES.map((image, index) => (
+    <button
+      key={`${image.src}-${index}`}
+      type="button"
+      className={`h-2 rounded-full transition-all duration-300 ${
+        activeCorporateImage === index
+          ? "w-7 bg-[#174d39]"
+          : "w-2 bg-[#c5cec6] hover:bg-[#174d39]/60"
+      }`}
+      aria-label={`View image ${index + 1}`}
+      aria-current={activeCorporateImage === index}
+      onClick={() => {
+        setAutoPlayCorporateImages(false);
+        setActiveCorporateImage(index);
+      }}
+    />
+  ))}
+</div>
 
                 <button
                   type="button"
