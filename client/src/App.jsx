@@ -470,7 +470,6 @@ useEffect(() => {
                       {product.badge && <span className="product-badge">{product.badge}</span>}
                     </button>
                     <div className="product-info">
-                      <p className="product-category">{product.categoryName}</p>
                       <h3>{product.name}</h3>
                       <p className="product-price">{formatPrice(product)}</p>
                       <div className="product-actions">
