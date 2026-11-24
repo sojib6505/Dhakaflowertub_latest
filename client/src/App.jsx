@@ -453,7 +453,7 @@ useEffect(() => {
                 <p className="catalogue-message">No pieces found for this selection.</p>
               )}
 
-              <div className="grid grid-cols-3 lg:grid-cols-6 gap-3 mb-20 md:mb-30">
+              <div className="grid grid-cols-2 lg:grid-cols-6 gap-3 mb-20 md:mb-30">
                 {displayedProducts.map((product) => (
                   <article className="product-card" key={product._id || product.slug}>
                     <button
