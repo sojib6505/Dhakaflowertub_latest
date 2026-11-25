@@ -4,13 +4,10 @@ import { getDBStatus } from '../config/db.js';
 import {
   CATEGORY_KEYS,
   DEFAULT_CATEGORIES,
-  DEFAULT_CATEGORY_KEY,
-  LEGACY_CATEGORY_MAP,
-  buildNameToKey,
-  resolveCategoryKey
+  buildNameToKey
 } from '../config/categories.js';
 
-// Creates any of the four categories that are missing. Never overwrites admin edits.
+// Creates any of the five categories that are missing. Never overwrites admin edits.
 export const ensureCategories = async () => {
   await Promise.all(
     DEFAULT_CATEGORIES.map((category) =>
@@ -26,34 +23,7 @@ export const loadCategories = async () => {
   return Category.find({ key: { $in: CATEGORY_KEYS } }).sort({ sortOrder: 1 }).lean();
 };
 
-// Maps products saved with the old free-text categories onto the four business categories.
-// Nothing is deleted: unknown values fall back to Residential and the old value is kept in legacyCategory.
-export const migrateProductCategories = async () => {
-  const categories = await loadCategories();
-  const nameToKey = buildNameToKey(categories);
-  const outdated = await Product.find({ category: { $nin: CATEGORY_KEYS } }).select('_id category').lean();
-
-  if (outdated.length === 0) return { migrated: 0 };
-
-  await Product.bulkWrite(
-    outdated.map((product) => ({
-      updateOne: {
-        filter: { _id: product._id },
-        update: {
-          $set: {
-            category: resolveCategoryKey(product.category, nameToKey) || DEFAULT_CATEGORY_KEY,
-            legacyCategory: String(product.category ?? '')
-          }
-        }
-      }
-    }))
-  );
-
-  console.log(`[Categories] Migrated ${outdated.length} product(s) to the four business categories.`);
-  return { migrated: outdated.length };
-};
-
-// @desc    Get the four categories
+// @desc    Get the five categories
 // @route   GET /api/categories
 export const getCategories = async (req, res, next) => {
   try {
@@ -68,7 +38,7 @@ export const getCategories = async (req, res, next) => {
   }
 };
 
-// @desc    Rename a category or change its description (the four categories cannot be added or removed)
+// @desc    Rename a category or change its description (the five categories cannot be added or removed)
 // @route   PUT /api/categories/:key
 export const updateCategory = async (req, res, next) => {
   try {
@@ -92,10 +62,6 @@ export const updateCategory = async (req, res, next) => {
     const clash = categories.find((category) => category.key !== key && category.name.trim().toLowerCase() === name.toLowerCase());
     if (clash) {
       return res.status(400).json({ success: false, message: `Another category is already named "${clash.name}".` });
-    }
-    // A name that matches an old product category would make legacy values resolve to the wrong place.
-    if (LEGACY_CATEGORY_MAP[name.toLowerCase()] && LEGACY_CATEGORY_MAP[name.toLowerCase()] !== key) {
-      return res.status(400).json({ success: false, message: 'Please choose a different category name.' });
     }
 
     const updated = await Category.findOneAndUpdate(

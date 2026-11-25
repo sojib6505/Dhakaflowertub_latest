@@ -5,13 +5,17 @@ import ImageUploader from './ImageUploader'
 import './admin.css'
 
 const emptyForm = {
-  name: '', slug: '', category: '', shortDescription: '', description: '', price: '', priceDisplay: '',
+  name: '', slug: '', categories: [], shortDescription: '', description: '', price: '', priceDisplay: '',
   material: '', finish: '', availability: 'in_stock', badge: '', isFeatured: false, sortOrder: 0,
   imageUrl: '', imageAlt: '', imagePublicId: '', extraImages: [], features: '', specifications: '', height: '', diameter: '', length: '', width: '',
 }
 
 const formFromProduct = (product) => ({
-  name: product.name || '', slug: product.slug || '', category: product.category || '',
+  name: product.name || '', slug: product.slug || '',
+  // Support both old single `category` and new `categories` array
+  categories: Array.isArray(product.categories) && product.categories.length > 0
+    ? product.categories
+    : (product.category ? [product.category] : []),
   shortDescription: product.shortDescription || '', description: product.description || '',
   price: product.price ?? '', priceDisplay: product.priceDisplay || '', material: product.material || '', finish: product.finish || '',
   availability: product.availability || 'in_stock', badge: product.badge || '', isFeatured: Boolean(product.isFeatured), sortOrder: product.sortOrder || 0,
@@ -23,7 +27,7 @@ const formFromProduct = (product) => ({
 })
 
 const formToProduct = (form) => ({
-  name: form.name.trim(), slug: form.slug.trim(), category: form.category, shortDescription: form.shortDescription.trim(), description: form.description.trim(),
+  name: form.name.trim(), slug: form.slug.trim(), categories: form.categories, shortDescription: form.shortDescription.trim(), description: form.description.trim(),
   price: Number(form.price) || 0, priceDisplay: form.priceDisplay.trim(), material: form.material.trim(), finish: form.finish.trim(), availability: form.availability,
   badge: form.badge.trim(), isFeatured: form.isFeatured, sortOrder: Number(form.sortOrder) || 0,
   images: [
@@ -122,7 +126,7 @@ function ProductForm({ product, categories, onSaved, onCancel }) {
   const updateField = (field, value) => setForm((current) => ({ ...current, [field]: value }))
   const submit = async (event) => {
     event.preventDefault()
-    if (!form.name.trim() || !form.category) { setError('Name and category are required.'); return }
+    if (!form.name.trim() || form.categories.length === 0) { setError('Name and at least one category are required.'); return }
     if (isUploading) { setError('Please wait for the image upload to finish.'); return }
     setError('')
     setIsSaving(true)
@@ -151,12 +155,52 @@ function ProductForm({ product, categories, onSaved, onCancel }) {
           <legend>Basic information</legend>
           <div className="admin-field-grid">
             <label className="wide-field">Name *<input value={form.name} onChange={(event) => updateField('name', event.target.value)} required /></label>
-            <label>Category *
-              <select value={form.category} onChange={(event) => updateField('category', event.target.value)} required>
-                <option value="" disabled>Select a category</option>
-                {categories.map((category) => <option key={category.key} value={category.key}>{category.name}</option>)}
-              </select>
-            </label>
+            <div className="admin-category-selector wide-field">
+              <span className="admin-category-selector-label">Categories * <span className="admin-help">(select one or more)</span></span>
+              <div className="admin-category-checkboxes">
+                {categories.map((category) => {
+                  const isChecked = form.categories.includes(category.key)
+                  return (
+                    <label
+                      key={category.key}
+                      className={`admin-category-checkbox-item${isChecked ? ' is-selected' : ''}`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={isChecked}
+                        onChange={() => {
+                          const next = isChecked
+                            ? form.categories.filter((k) => k !== category.key)
+                            : [...form.categories, category.key]
+                          updateField('categories', next)
+                        }}
+                      />
+                      <span>{category.name}</span>
+                    </label>
+                  )
+                })}
+              </div>
+              {form.categories.length > 0 && (
+                <div className="admin-selected-cats">
+                  <span className="admin-help">Selected: </span>
+                  {form.categories.map((key) => {
+                    const name = categories.find((c) => c.key === key)?.name || key
+                    return (
+                      <span key={key} className="admin-selected-cat-chip">
+                        {name}
+                        <button
+                          type="button"
+                          aria-label={`Remove ${name}`}
+                          onClick={() => updateField('categories', form.categories.filter((k) => k !== key))}
+                        >
+                          <X size={11} />
+                        </button>
+                      </span>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
             <label>Slug<input value={form.slug} onChange={(event) => updateField('slug', event.target.value)} placeholder="Generated from name if blank" /></label>
             <label className="wide-field">Short description<textarea rows="2" value={form.shortDescription} onChange={(event) => updateField('shortDescription', event.target.value)} /></label>
             <label className="wide-field">Description<textarea rows="4" value={form.description} onChange={(event) => updateField('description', event.target.value)} /></label>
@@ -399,11 +443,24 @@ function AdminDashboard({ onLogout }) {
 
   // Products handlers
   const categoryNames = useMemo(() => Object.fromEntries(categories.map((category) => [category.key, category.name])), [categories])
-  const categoryProductCounts = useMemo(() => products.reduce((counts, product) => ({ ...counts, [product.category]: (counts[product.category] || 0) + 1 }), {}), [products])
-  const visibleProducts = useMemo(() =>
-    products.filter((product) => `${product.name} ${categoryNames[product.category] || product.category}`.toLowerCase().includes(search.toLowerCase().trim())),
-    [products, search, categoryNames]
-  )
+  // Count products per category: a product contributes to every category in its categories array
+  const categoryProductCounts = useMemo(() => products.reduce((counts, product) => {
+    const cats = Array.isArray(product.categories) && product.categories.length > 0
+      ? product.categories
+      : (product.category ? [product.category] : [])
+    cats.forEach((key) => { counts[key] = (counts[key] || 0) + 1 })
+    return counts
+  }, {}), [products])
+  const visibleProducts = useMemo(() => {
+    const term = search.toLowerCase().trim()
+    return products.filter((product) => {
+      const catKeys = Array.isArray(product.categories) && product.categories.length > 0
+        ? product.categories
+        : (product.category ? [product.category] : [])
+      const catLabel = catKeys.map((k) => categoryNames[k] || k).join(' ')
+      return `${product.name} ${catLabel}`.toLowerCase().includes(term)
+    })
+  }, [products, search, categoryNames])
   const saveCategory = (saved) => setCategories((current) => current.map((item) => item.key === saved.key ? saved : item))
   const saveProduct = (saved) => {
     setProducts((current) => {
@@ -482,7 +539,7 @@ function AdminDashboard({ onLogout }) {
                 ? 'Manage catalogue items and inventory displayed on the store.'
                 : activeTab === 'offers'
                   ? 'Manage special bundles and curated offer packages shown on the homepage.'
-                  : 'The catalogue has exactly four categories. Rename them or change their descriptions; the website updates automatically.'}
+                  : 'The catalogue has exactly five categories. Rename them or change their descriptions; the website updates automatically.'}
             </p>
           </div>
           <div className="flex gap-2.5">
@@ -583,7 +640,12 @@ function AdminDashboard({ onLogout }) {
                         <strong>{product.name}</strong>
                       </div>
                     </td>
-                    <td>{categoryNames[product.category] || product.category}</td>
+                    <td>{(() => {
+                      const cats = Array.isArray(product.categories) && product.categories.length > 0
+                        ? product.categories
+                        : (product.category ? [product.category] : [])
+                      return cats.map((k) => categoryNames[k] || k).join(', ') || '—'
+                    })()}</td>
                     <td>{product.priceDisplay || (product.price ? `৳ ${product.price.toLocaleString()}` : 'On request')}</td>
                     <td>
                       <select className="status-select" value={product.availability} onChange={(event) => updateProduct(product, { availability: event.target.value })}>

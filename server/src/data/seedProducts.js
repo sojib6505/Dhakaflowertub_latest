@@ -2,7 +2,7 @@ export const seedProducts = [
   {
     name: 'Nordic Cylindrical Cement Flower Tub',
     slug: 'nordic-cylindrical-cement-flower-tub',
-    category: 'residential',
+    categories: ['planters-tub'],
     price: 1650,
     priceDisplay: '৳ 1,650',
     shortDescription: 'Minimalist smooth-cast architectural concrete cylinder with integrated drainage and saucer.',
@@ -40,7 +40,7 @@ export const seedProducts = [
       'Heavy-duty base prevents accidental tipping by pets or wind',
       'Breathable porous mineral composite promoting root health',
       'Treated with eco-friendly water-repellent sealant',
-      'Precision bevelled rim with seamless seamless casting'
+      'Precision bevelled rim with seamless casting'
     ],
     availability: 'in_stock',
     badge: 'Bestseller',
@@ -50,7 +50,7 @@ export const seedProducts = [
   {
     name: 'Monumental Fluted Column Planter Tub',
     slug: 'monumental-fluted-column-planter-tub',
-    category: 'corporate',
+    categories: ['planters-tub', 'landscaping'],
     price: 3400,
     priceDisplay: '৳ 3,400',
     shortDescription: 'Tall sculptural fluted column designed for dramatic entryways, staircases, and lobby greenery.',
@@ -98,7 +98,7 @@ export const seedProducts = [
   {
     name: 'Terrazzo Artisan Low Bowl Tub',
     slug: 'terrazzo-artisan-low-bowl-tub',
-    category: 'residential',
+    categories: ['planters-tub', 'planter-sets'],
     price: 2100,
     priceDisplay: '৳ 2,100',
     shortDescription: 'Wide-mouthed handcrafted terrazzo shallow basin ideal for succulents, bonsai, and centerpiece plants.',
@@ -140,7 +140,7 @@ export const seedProducts = [
   {
     name: 'Modular Geometric Square Planter Tub',
     slug: 'modular-geometric-square-planter-tub',
-    category: 'hospitality',
+    categories: ['planters-tub', 'landscaping'],
     price: 2800,
     priceDisplay: '৳ 2,800',
     shortDescription: 'Sharp contemporary square tub engineered for perimeter lining, rooftop gardens, and modern patios.',
@@ -181,7 +181,7 @@ export const seedProducts = [
   {
     name: 'Curved Olive Vessel Terracotta Tub',
     slug: 'curved-olive-vessel-terracotta-tub',
-    category: 'commercial',
+    categories: ['planters-tub'],
     price: 2450,
     priceDisplay: '৳ 2,450',
     shortDescription: 'Timeless Mediterranean belly urn silhouette handcrafted with fired earthen clay and warm ochre tones.',
@@ -222,7 +222,7 @@ export const seedProducts = [
   {
     name: 'Grand Estate Trough Rectangular Planter',
     slug: 'grand-estate-trough-rectangular-planter',
-    category: 'hospitality',
+    categories: ['landscaping', 'planter-sets'],
     price: 4900,
     priceDisplay: '৳ 4,900',
     shortDescription: 'Long architectural divider trough tub for balcony privacy screens, terrace borders, and restaurant partitions.',

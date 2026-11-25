@@ -1,7 +1,7 @@
 import dotenv from 'dotenv';
 import app from './app.js';
 import { connectDB, getDBStatus } from './config/db.js';
-import { ensureCategories, migrateProductCategories } from './controllers/categoryController.js';
+import { ensureCategories } from './controllers/categoryController.js';
 
 dotenv.config();
 
@@ -12,9 +12,8 @@ const startServer = () => {
   connectDB()
     .then(async () => {
       if (!getDBStatus().connected) return;
-      // Guarantee the four categories exist and map any legacy product categories onto them.
+      // Guarantee the five categories exist without overwriting any admin edits.
       await ensureCategories();
-      await migrateProductCategories();
     })
     .catch((err) => {
       console.warn(`[MongoDB Warning] Startup tasks failed: ${err.message}`);

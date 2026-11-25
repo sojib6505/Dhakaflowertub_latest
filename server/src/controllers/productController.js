@@ -20,12 +20,12 @@ import {
 } from '../utils/sanitize.js';
 
 const EDITABLE_FIELDS = [
-  'name', 'slug', 'shortDescription', 'description', 'category', 'price', 'priceDisplay', 'isPriceCustom',
+  'name', 'slug', 'categories', 'shortDescription', 'description', 'price', 'priceDisplay', 'isPriceCustom',
   'images', 'material', 'finish', 'dimensions', 'specifications', 'features', 'availability', 'badge',
   'isFeatured', 'sortOrder'
 ];
 
-const categoryError = `Category must be one of: ${CATEGORY_KEYS.join(', ')}.`;
+const categoryError = `All category keys must be one of: ${CATEGORY_KEYS.join(', ')}.`;
 
 const getNameToKey = async () => {
   const categories = await Category.find({ key: { $in: CATEGORY_KEYS } }).select('key name').lean();
@@ -33,6 +33,24 @@ const getNameToKey = async () => {
 };
 
 const imagePublicIds = (images = []) => images.map((image) => image?.publicId).filter(Boolean);
+
+/**
+ * Accepts categories from the request body as either:
+ * - an array of keys: ['planters-tub', 'plants']
+ * - a single string key: 'planters-tub'
+ * Returns a de-duplicated array of valid keys, or null if any key is invalid.
+ */
+const resolveCategories = (raw, nameToKey) => {
+  const list = Array.isArray(raw) ? raw : (typeof raw === 'string' && raw ? [raw] : []);
+  if (list.length === 0) return [];
+  const resolved = [];
+  for (const item of list) {
+    const key = resolveCategoryKey(item, nameToKey);
+    if (!key) return null; // unknown key — reject the whole request
+    if (!resolved.includes(key)) resolved.push(key);
+  }
+  return resolved;
+};
 
 // Normalises the editable payload shared by create and update.
 const buildProductData = (body) => {
@@ -66,8 +84,10 @@ export const getProducts = async (req, res, next) => {
       const nameToKey = await getNameToKey();
 
       if (wantsCategory) {
-        // Unknown categories match nothing instead of silently returning everything.
-        query.category = resolveCategoryKey(category, nameToKey) || '__none__';
+        // Resolve supplied category name/key to a canonical key; unknown categories match nothing.
+        const resolvedKey = resolveCategoryKey(category, nameToKey) || '__none__';
+        // A product is in a category when its categories array contains that key.
+        query.categories = resolvedKey;
       }
 
       if (featured === 'true') query.isFeatured = true;
@@ -83,8 +103,7 @@ export const getProducts = async (req, res, next) => {
           { name: pattern },
           { shortDescription: pattern },
           { material: pattern },
-          { category: pattern },
-          ...(matchingCategoryKeys.length ? [{ category: { $in: matchingCategoryKeys } }] : [])
+          ...(matchingCategoryKeys.length ? [{ categories: { $in: matchingCategoryKeys } }] : [])
         ];
       }
 
@@ -113,7 +132,7 @@ export const getProducts = async (req, res, next) => {
 
     if (wantsCategory) {
       const key = resolveCategoryKey(category, nameToKey);
-      filtered = filtered.filter((p) => p.category === key);
+      filtered = filtered.filter((p) => Array.isArray(p.categories) && p.categories.includes(key));
     }
     if (featured === 'true') filtered = filtered.filter((p) => p.isFeatured);
     if (availability) filtered = filtered.filter((p) => p.availability === availability);
@@ -125,7 +144,7 @@ export const getProducts = async (req, res, next) => {
         (p) =>
           p.name.toLowerCase().includes(term) ||
           p.shortDescription?.toLowerCase().includes(term) ||
-          categoryNames[p.category]?.includes(term) ||
+          (Array.isArray(p.categories) && p.categories.some((k) => categoryNames[k]?.includes(term))) ||
           p.material?.toLowerCase().includes(term)
       );
     }
@@ -191,12 +210,13 @@ export const createProduct = async (req, res, next) => {
     const data = buildProductData(req.body);
     const name = typeof data.name === 'string' ? data.name.trim() : '';
 
-    if (!name || !data.category) {
-      return res.status(400).json({ success: false, message: 'Please provide product name and category' });
+    if (!name) {
+      return res.status(400).json({ success: false, message: 'Please provide a product name.' });
     }
 
-    const categoryKey = resolveCategoryKey(data.category, await getNameToKey());
-    if (!categoryKey) {
+    const nameToKey = await getNameToKey();
+    const categories = resolveCategories(data.categories, nameToKey);
+    if (categories === null) {
       return res.status(400).json({ success: false, message: categoryError });
     }
 
@@ -213,7 +233,7 @@ export const createProduct = async (req, res, next) => {
       ...data,
       name,
       slug,
-      category: categoryKey,
+      categories,
       priceDisplay: data.priceDisplay || (data.price ? `৳ ${data.price.toLocaleString()}` : 'Price on request')
     });
 
@@ -248,10 +268,11 @@ export const updateProduct = async (req, res, next) => {
       if (!data.name) return res.status(400).json({ success: false, message: 'Product name is required.' });
     }
 
-    if (data.category !== undefined) {
-      const categoryKey = resolveCategoryKey(data.category, await getNameToKey());
-      if (!categoryKey) return res.status(400).json({ success: false, message: categoryError });
-      data.category = categoryKey;
+    if (data.categories !== undefined) {
+      const nameToKey = await getNameToKey();
+      const categories = resolveCategories(data.categories, nameToKey);
+      if (categories === null) return res.status(400).json({ success: false, message: categoryError });
+      data.categories = categories;
     }
 
     // Keep the current slug unless a different one was explicitly provided.

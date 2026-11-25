@@ -102,20 +102,34 @@ function App() {
     [categories]
   );
 
-  // Products carry the stable category key; attach the current display name for the UI.
+  // Products carry the stable categories array; compute a display label from the first assigned category.
   const products = useMemo(
     () =>
-      rawProducts.map((product) => ({
-        ...product,
-        categoryName: categoryByKey[product.category]?.name || product.category,
-      })),
+      rawProducts.map((product) => {
+        // Support both old single-string `category` and new array `categories`
+        const cats = Array.isArray(product.categories) && product.categories.length > 0
+          ? product.categories
+          : (product.category ? [product.category] : []);
+        const primaryCategoryName = cats.length > 0
+          ? (categoryByKey[cats[0]]?.name || cats[0])
+          : '';
+        return {
+          ...product,
+          // Normalise to array for consistent access throughout the UI
+          categories: cats,
+          categoryName: primaryCategoryName,
+        };
+      }),
     [rawProducts, categoryByKey]
   );
 
   // One card per category, each with one representative product image.
+  // A product's count is incremented for every category it belongs to.
   const categoryCards = useMemo(() => {
     return categories.map((category) => {
-      const matchingProducts = products.filter((p) => p.category === category.key);
+      const matchingProducts = products.filter(
+        (p) => Array.isArray(p.categories) && p.categories.includes(category.key)
+      );
       return {
         key: category.key,
         name: category.name,
@@ -133,8 +147,12 @@ function App() {
     const term = search.trim().toLowerCase();
     if (term) {
       return products.filter((product) => {
+        // Build a text blob that includes all assigned category names
+        const catNames = Array.isArray(product.categories)
+          ? product.categories.map((k) => categoryByKey[k]?.name || k).join(' ')
+          : (product.categoryName || '');
         const text =
-          `${product.name} ${product.shortDescription || ""} ${product.categoryName} ${product.material || ""}`.toLowerCase();
+          `${product.name} ${product.shortDescription || ''} ${catNames} ${product.material || ''}`.toLowerCase();
         return text.includes(term);
       });
     }
@@ -143,8 +161,17 @@ function App() {
       return products;
     }
 
-    return products.filter((product) => product.category === activeCategory);
-  }, [products, search, showAllProducts, activeCategory]);
+    // A product appears in a category view if its categories array includes the active key.
+    // De-duplicate by _id / slug in case of corrupted data.
+    const seen = new Set();
+    return products.filter((product) => {
+      const id = product._id || product.slug;
+      if (seen.has(id)) return false;
+      const inCategory = Array.isArray(product.categories) && product.categories.includes(activeCategory);
+      if (inCategory) { seen.add(id); return true; }
+      return false;
+    });
+  }, [products, search, showAllProducts, activeCategory, categoryByKey]);
 
   const featuredProduct = useMemo(() => {
     return products.find((p) => p.isFeatured) || products[0];

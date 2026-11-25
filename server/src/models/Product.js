@@ -26,16 +26,21 @@ const productSchema = new mongoose.Schema(
       type: String,
       trim: true
     },
-    // Stable key of one of the four business categories (see config/categories.js).
-    category: {
-      type: String,
-      required: [true, 'Category is required'],
-      trim: true,
-      lowercase: true,
-      enum: { values: CATEGORY_KEYS, message: 'Category must be one of: ' + CATEGORY_KEYS.join(', ') },
+    // Array of stable category keys this product belongs to (see config/categories.js).
+    categories: {
+      type: [String],
+      default: [],
+      validate: {
+        validator(value) {
+          if (!Array.isArray(value) || value.length === 0) return true; // allow empty temporarily
+          return value.every((k) => CATEGORY_KEYS.includes(k));
+        },
+        message: 'All category keys must be one of: ' + CATEGORY_KEYS.join(', ')
+      },
       index: true
     },
-    // Set by the one-time migration: the free-text category this product had before.
+    // Kept for backward-compatibility: the old single category field value.
+    // Do NOT remove until all products have been manually reassigned to new categories.
     legacyCategory: {
       type: String,
       trim: true,
@@ -134,7 +139,7 @@ const productSchema = new mongoose.Schema(
 );
 
 // Helpful index for sorting & searching
-productSchema.index({ name: 'text', description: 'text', category: 'text' });
+productSchema.index({ name: 'text', description: 'text' });
 
 const Product = mongoose.models.Product || mongoose.model('Product', productSchema);
 

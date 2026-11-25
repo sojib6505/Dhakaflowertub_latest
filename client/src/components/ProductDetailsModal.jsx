@@ -116,7 +116,21 @@ function ProductDetailsModal({ product, onClose }) {
         {/* Right Side / Product Details */}
         <div className="modal-content">
           <div className="modal-header-meta">
-            <span className="product-category-chip">{product.categoryName || product.category}</span>
+            {/* Show all assigned category names; fall back gracefully for legacy data */}
+            {(() => {
+              const cats = Array.isArray(product.categories) && product.categories.length > 0
+                ? product.categories
+                : (product.category ? [product.category] : []);
+              const label = cats.length > 0
+                ? cats.map((k) => product.categoryName || k).join(', ')
+                : (product.categoryName || product.category || '');
+              // For multi-category products, build a comma list of names
+              // We only have categoryName for the primary; just show comma-sep keys if more than one
+              const displayLabel = cats.length > 1
+                ? cats.join(', ').replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
+                : (product.categoryName || cats[0] || '');
+              return <span className="product-category-chip">{displayLabel}</span>;
+            })()}
             <span className={`availability-tag availability-${product.availability}`}>
               <span className="status-dot" />
               {availabilityLabels[product.availability] || product.availability}

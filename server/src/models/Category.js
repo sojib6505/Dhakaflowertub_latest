@@ -7,7 +7,8 @@ const categorySchema = new mongoose.Schema(
       type: String,
       required: true,
       unique: true,
-      enum: { values: CATEGORY_KEYS, message: 'Category key must be one of: ' + CATEGORY_KEYS.join(', ') },
+      // enum is not enforced here because existing Category documents with old keys
+      // must remain readable. Validation happens in the config layer.
       immutable: true
     },
     name: {

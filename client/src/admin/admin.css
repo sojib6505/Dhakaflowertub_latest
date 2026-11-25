@@ -104,6 +104,18 @@
   .category-admin-key { @apply rounded-full bg-[#e8ece5] px-2.5 py-1 text-[10px] font-semibold capitalize text-[#174d39]; }
   .category-admin-foot { @apply flex items-center justify-end gap-3; }
   .category-admin-saved { @apply inline-flex items-center gap-1 text-[11px] text-[#174d39]; }
+
+  /* Multi-category selector */
+  .admin-category-selector { @apply flex flex-col gap-2; }
+  .admin-category-selector-label { @apply text-[11px] text-[#6b766d]; }
+  .admin-category-checkboxes { @apply flex flex-wrap gap-2 mt-1; }
+  .admin-category-checkbox-item { @apply flex cursor-pointer items-center gap-1.5 rounded-full border border-[#dfe4dc] bg-white px-3 py-[7px] text-[11px] text-[#6b766d] transition-all; }
+  .admin-category-checkbox-item:hover { @apply border-[#174d39] text-[#174d39]; }
+  .admin-category-checkbox-item.is-selected { @apply border-[#174d39] bg-[#e8ece5] text-[#174d39] font-medium; }
+  .admin-category-checkbox-item input[type="checkbox"] { @apply h-[13px] w-[13px] accent-[#174d39]; }
+  .admin-selected-cats { @apply flex flex-wrap items-center gap-1.5 mt-2; }
+  .admin-selected-cat-chip { @apply inline-flex items-center gap-1 rounded-full bg-[#174d39] px-2.5 py-1 text-[10px] font-medium text-white; }
+  .admin-selected-cat-chip button { @apply cursor-pointer border-0 bg-transparent p-0 text-white/80 hover:text-white inline-flex items-center; }
 }
 
 @keyframes admin-spin { to { transform: rotate(360deg); } }
