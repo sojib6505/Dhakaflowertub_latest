@@ -20,7 +20,7 @@ import {
 } from '../utils/sanitize.js';
 
 const EDITABLE_FIELDS = [
-  'name', 'slug', 'categories', 'shortDescription', 'description', 'price', 'priceDisplay', 'isPriceCustom',
+  'name', 'slug', 'categories', 'shortDescription', 'description', 'price', 'oldPrice', 'variants', 'priceDisplay', 'isPriceCustom',
   'images', 'material', 'finish', 'dimensions', 'specifications', 'features', 'availability', 'badge',
   'isFeatured', 'sortOrder'
 ];
@@ -33,6 +33,10 @@ const getNameToKey = async () => {
 };
 
 const imagePublicIds = (images = []) => images.map((image) => image?.publicId).filter(Boolean);
+const productImagePublicIds = (product) => [
+  ...imagePublicIds(product?.images || []),
+  ...(product?.variants || []).map((variant) => variant?.image?.publicId).filter(Boolean)
+];
 
 /**
  * Accepts categories from the request body as either:
@@ -64,9 +68,53 @@ const buildProductData = (body) => {
       .filter((item) => item.label && item.value);
   }
   if (data.price !== undefined) data.price = Number(data.price) || 0;
+  if (data.oldPrice !== undefined) data.oldPrice = Number(data.oldPrice) || 0;
   if (data.sortOrder !== undefined) data.sortOrder = Number(data.sortOrder) || 0;
+  if (Array.isArray(data.variants)) {
+    data.variants = data.variants.map((variant, index) => ({
+      ...(isObjectId(variant?._id) ? { _id: variant._id } : {}),
+      name: String(variant?.name ?? '').trim(),
+      price: Number(variant?.price),
+      image: variant?.image && typeof variant.image === 'object'
+        ? {
+            url: String(variant.image.url ?? '').trim(),
+            alt: String(variant.image.alt ?? '').trim(),
+            publicId: String(variant.image.publicId ?? '').trim()
+          }
+        : { url: '', alt: '', publicId: '' },
+      sortOrder: Number(variant?.sortOrder) || index
+    }));
+  }
 
   return data;
+};
+
+const validateVariants = (variants) => {
+  if (variants === undefined) return null;
+  if (!Array.isArray(variants)) return 'Variants must be a list.';
+
+  const names = new Set();
+  for (const variant of variants) {
+    const name = String(variant.name ?? '').trim();
+    const price = Number(variant.price);
+    if (!name) return 'Each variant requires a size name.';
+    if (!Number.isFinite(price) || price <= 0) return 'Each variant requires a valid positive price.';
+
+    const duplicateKey = name.toLocaleLowerCase();
+    if (names.has(duplicateKey)) return `Duplicate variant size name: ${name}.`;
+    names.add(duplicateKey);
+
+    const imageUrl = String(variant.image?.url ?? '').trim();
+    if (imageUrl) {
+      try {
+        const parsed = new URL(imageUrl);
+        if (!['http:', 'https:'].includes(parsed.protocol)) return 'Variant image must use an HTTP or HTTPS URL.';
+      } catch {
+        return 'Variant image must use a valid HTTP or HTTPS URL.';
+      }
+    }
+  }
+  return null;
 };
 
 // @desc    Get all products with filtering, search, and sorting
@@ -208,6 +256,8 @@ export const createProduct = async (req, res, next) => {
     }
 
     const data = buildProductData(req.body);
+    const variantError = validateVariants(data.variants);
+    if (variantError) return res.status(400).json({ success: false, message: variantError });
     const name = typeof data.name === 'string' ? data.name.trim() : '';
 
     if (!name) {
@@ -262,6 +312,8 @@ export const updateProduct = async (req, res, next) => {
     }
 
     const data = buildProductData(req.body);
+    const variantError = validateVariants(data.variants);
+    if (variantError) return res.status(400).json({ success: false, message: variantError });
 
     if (data.name !== undefined) {
       data.name = String(data.name).trim();
@@ -289,9 +341,9 @@ export const updateProduct = async (req, res, next) => {
     const updated = await Product.findByIdAndUpdate(existing._id, { $set: data }, { new: true, runValidators: true });
 
     // Remove images that were replaced or removed from storage (best effort).
-    if (data.images !== undefined) {
-      const kept = new Set(imagePublicIds(updated.images));
-      destroyImages(imagePublicIds(existing.images).filter((id) => !kept.has(id)));
+    if (data.images !== undefined || data.variants !== undefined) {
+      const kept = new Set(productImagePublicIds(updated));
+      destroyImages(productImagePublicIds(existing).filter((id) => !kept.has(id)));
     }
 
     return res.json({ success: true, message: 'Product updated successfully', data: updated });
@@ -315,7 +367,7 @@ export const deleteProduct = async (req, res, next) => {
       return res.status(404).json({ success: false, message: 'Product not found to delete' });
     }
 
-    destroyImages(imagePublicIds(deleted.images));
+    destroyImages(productImagePublicIds(deleted));
 
     return res.json({ success: true, message: 'Product deleted successfully', data: { id: slugOrId } });
   } catch (error) {

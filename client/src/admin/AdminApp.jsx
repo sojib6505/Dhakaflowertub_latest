@@ -1,11 +1,12 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Check, LayoutGrid, LogOut, Package, Pencil, Plus, Search, Star, Tag, Trash2, X } from 'lucide-react'
 import { adminRequest, API_URL, clearAdminToken, getAdminToken, saveAdminToken } from './adminApi'
 import ImageUploader from './ImageUploader'
+import { formatMainPrice } from '../utils/pricing'
 import './admin.css'
 
 const emptyForm = {
-  name: '', slug: '', categories: [], shortDescription: '', description: '', price: '', priceDisplay: '',
+  name: '', slug: '', categories: [], shortDescription: '', description: '', price: '', oldPrice: '', priceDisplay: '', variants: [],
   material: '', finish: '', availability: 'in_stock', badge: '', isFeatured: false, sortOrder: 0,
   imageUrl: '', imageAlt: '', imagePublicId: '', extraImages: [], features: '', specifications: '', height: '', diameter: '', length: '', width: '',
 }
@@ -17,7 +18,14 @@ const formFromProduct = (product) => ({
     ? product.categories
     : (product.category ? [product.category] : []),
   shortDescription: product.shortDescription || '', description: product.description || '',
-  price: product.price ?? '', priceDisplay: product.priceDisplay || '', material: product.material || '', finish: product.finish || '',
+  price: product.price ?? '', oldPrice: product.oldPrice ?? '', priceDisplay: product.priceDisplay || '', material: product.material || '', finish: product.finish || '',
+  variants: (product.variants || []).map((variant, index) => ({
+    _id: variant._id || `variant-${index}-${variant.name || 'size'}`,
+    name: variant.name || '',
+    price: variant.price ?? '',
+    image: variant.image?.url ? { url: variant.image.url, alt: variant.image.alt || '', publicId: variant.image.publicId || '' } : null,
+    sortOrder: variant.sortOrder ?? index
+  })).sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0)),
   availability: product.availability || 'in_stock', badge: product.badge || '', isFeatured: Boolean(product.isFeatured), sortOrder: product.sortOrder || 0,
   imageUrl: product.images?.[0]?.url || '', imageAlt: product.images?.[0]?.alt || '', imagePublicId: product.images?.[0]?.publicId || '',
   // Gallery images beyond the first are kept as they are, so editing never drops them.
@@ -28,7 +36,14 @@ const formFromProduct = (product) => ({
 
 const formToProduct = (form) => ({
   name: form.name.trim(), slug: form.slug.trim(), categories: form.categories, shortDescription: form.shortDescription.trim(), description: form.description.trim(),
-  price: Number(form.price) || 0, priceDisplay: form.priceDisplay.trim(), material: form.material.trim(), finish: form.finish.trim(), availability: form.availability,
+  price: Number(form.price) || 0, oldPrice: Number(form.oldPrice) || 0, priceDisplay: form.priceDisplay.trim(), material: form.material.trim(), finish: form.finish.trim(), availability: form.availability,
+  variants: form.variants.map((variant, index) => ({
+    ...(_idForVariant(variant) ? { _id: _idForVariant(variant) } : {}),
+    name: variant.name.trim(),
+    price: Number(variant.price) || 0,
+    image: variant.image?.url ? { url: variant.image.url, alt: variant.image.alt || variant.name.trim(), ...(variant.image.publicId ? { publicId: variant.image.publicId } : {}) } : { url: '', alt: '', publicId: '' },
+    sortOrder: index
+  })),
   badge: form.badge.trim(), isFeatured: form.isFeatured, sortOrder: Number(form.sortOrder) || 0,
   images: [
     ...(form.imageUrl.trim() ? [{ url: form.imageUrl.trim(), alt: form.imageAlt.trim(), isPrimary: true, ...(form.imagePublicId ? { publicId: form.imagePublicId } : {}) }] : []),
@@ -41,7 +56,7 @@ const formToProduct = (form) => ({
 
 const emptyOfferForm = {
   title: '', slug: '', subtitle: '', description: '', imageUrl: '', imageAlt: '', imagePublicId: '',
-  discountType: 'percentage', discountValue: '', originalPrice: '', offerPrice: '',
+  discountType: 'percentage', discountValue: '', originalPrice: '', offerPrice: '', products: [],
   priceDisplay: '', badge: 'Special Offer', features: '', isActive: true, sortOrder: 0
 }
 
@@ -50,15 +65,19 @@ const formFromOffer = (offer) => ({
   imageUrl: offer.image?.url || '', imageAlt: offer.image?.alt || '', imagePublicId: offer.image?.publicId || '',
   discountType: offer.discountType || 'percentage', discountValue: offer.discountValue ?? '',
   originalPrice: offer.originalPrice ?? '', offerPrice: offer.offerPrice ?? '',
+  products: (offer.products || []).map((product) => String(typeof product === 'object' ? product?._id || product : product)),
   priceDisplay: offer.priceDisplay || '', badge: offer.badge || 'Special Offer',
   features: (offer.features || []).join('\n'), isActive: Boolean(offer.isActive ?? true), sortOrder: offer.sortOrder || 0
 })
+
+const _idForVariant = (variant) => (/^[0-9a-fA-F]{24}$/.test(String(variant._id || '')) ? variant._id : undefined)
 
 const formToOffer = (form) => ({
   title: form.title.trim(), slug: form.slug.trim(), subtitle: form.subtitle.trim(), description: form.description.trim(),
   image: { url: form.imageUrl.trim(), alt: form.imageAlt.trim() || form.title.trim(), ...(form.imagePublicId ? { publicId: form.imagePublicId } : {}) },
   discountType: form.discountType, discountValue: Number(form.discountValue) || 0,
   originalPrice: Number(form.originalPrice) || 0, offerPrice: Number(form.offerPrice) || 0,
+  products: form.products,
   priceDisplay: form.priceDisplay.trim() || (form.offerPrice ? `৳ ${Number(form.offerPrice).toLocaleString()}` : ''),
   badge: form.badge.trim() || 'Special Offer',
   features: form.features.split('\n').map((item) => item.trim()).filter(Boolean),
@@ -121,13 +140,39 @@ function ProductForm({ product, categories, onSaved, onCancel }) {
   const [form, setForm] = useState(product ? formFromProduct(product) : emptyForm)
   const [error, setError] = useState('')
   const [isSaving, setIsSaving] = useState(false)
-  const [isUploading, setIsUploading] = useState(false)
+  const [uploadingImageIds, setUploadingImageIds] = useState([])
+  const isUploading = uploadingImageIds.length > 0
 
   const updateField = (field, value) => setForm((current) => ({ ...current, [field]: value }))
+  const handleUploadBusyChange = useCallback((isBusy, uploadId) => {
+    if (!uploadId) return
+    setUploadingImageIds((current) => {
+      if (isBusy) return current.includes(uploadId) ? current : [...current, uploadId]
+      if (!current.includes(uploadId)) return current
+      return current.filter((id) => id !== uploadId)
+    })
+  }, [])
+  const updateVariant = (variantId, field, value) => {
+    setForm((current) => ({
+      ...current,
+      variants: current.variants.map((variant) => variant._id === variantId ? { ...variant, [field]: value } : variant)
+    }))
+  }
   const submit = async (event) => {
     event.preventDefault()
     if (!form.name.trim() || form.categories.length === 0) { setError('Name and at least one category are required.'); return }
     if (isUploading) { setError('Please wait for the image upload to finish.'); return }
+
+    const variantNames = new Set()
+    for (const variant of form.variants) {
+      const name = variant.name.trim()
+      const price = Number(variant.price)
+      if (!name) { setError('Each variant requires a size name.'); return }
+      if (!Number.isFinite(price) || price <= 0) { setError('Each variant requires a valid positive price.'); return }
+      const duplicateKey = name.toLocaleLowerCase()
+      if (variantNames.has(duplicateKey)) { setError(`Duplicate variant size name: ${name}.`); return }
+      variantNames.add(duplicateKey)
+    }
     setError('')
     setIsSaving(true)
     try {
@@ -209,7 +254,8 @@ function ProductForm({ product, categories, onSaved, onCancel }) {
         <fieldset>
           <legend>Pricing and availability</legend>
           <div className="admin-field-grid">
-            <label>Price<input type="number" min="0" value={form.price} onChange={(event) => updateField('price', event.target.value)} /></label>
+            <label>Legacy price<input type="number" min="0" value={form.price} onChange={(event) => updateField('price', event.target.value)} /></label>
+            <label>Old price (optional)<input type="number" min="0" value={form.oldPrice} onChange={(event) => updateField('oldPrice', event.target.value)} /></label>
             <label>Display price<input value={form.priceDisplay} onChange={(event) => updateField('priceDisplay', event.target.value)} placeholder="৳ 1,650" /></label>
             <label>Status
               <select value={form.availability} onChange={(event) => updateField('availability', event.target.value)}>
@@ -224,13 +270,55 @@ function ProductForm({ product, categories, onSaved, onCancel }) {
           </div>
         </fieldset>
         <fieldset>
+          <legend>Size variants</legend>
+          <div className="variant-list">
+            {form.variants.map((variant) => (
+              <div className="variant-row" key={variant._id}>
+                <label>Size name *<input value={variant.name} onChange={(event) => updateVariant(variant._id, 'name', event.target.value)} placeholder="Small, Medium, Large" /></label>
+                <label>Price *<input type="number" min="0.01" step="0.01" value={variant.price} onChange={(event) => updateVariant(variant._id, 'price', event.target.value)} /></label>
+                <div className="variant-image-field">
+                  <ImageUploader
+                    label="Variant image (optional)"
+                    scope="products"
+                    value={variant.image}
+                    uploadId={`product-variant-${variant._id}`}
+                    onBusyChange={handleUploadBusyChange}
+                    onChange={(image) => updateVariant(variant._id, 'image', image)}
+                  />
+                  {variant.image?.url && (
+                    <label className="variant-alt-field">Image alt text<input value={variant.image.alt || ''} onChange={(event) => updateVariant(variant._id, 'image', { ...variant.image, alt: event.target.value })} /></label>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  className="admin-secondary-button danger variant-delete"
+                  onClick={() => setForm((current) => ({ ...current, variants: current.variants.filter((item) => item._id !== variant._id) }))}
+                >
+                  <Trash2 size={15} /> Delete
+                </button>
+              </div>
+            ))}
+            <button
+              type="button"
+              className="admin-secondary-button"
+              onClick={() => setForm((current) => ({
+                ...current,
+                variants: [...current.variants, { _id: `new-${Date.now()}-${current.variants.length}`, name: '', price: '', image: null, sortOrder: current.variants.length }]
+              }))}
+            >
+              <Plus size={15} /> Add size
+            </button>
+          </div>
+        </fieldset>
+        <fieldset>
           <legend>Image</legend>
           <div className="admin-field-grid">
             <ImageUploader
               label="Product image"
               scope="products"
+              uploadId="product-main"
               value={form.imageUrl ? { url: form.imageUrl, publicId: form.imagePublicId } : null}
-              onBusyChange={setIsUploading}
+              onBusyChange={handleUploadBusyChange}
               onChange={(image) => setForm((current) => ({ ...current, imageUrl: image?.url || '', imagePublicId: image?.publicId || '' }))}
             />
             <label className="wide-field">Image alt text<input value={form.imageAlt} onChange={(event) => updateField('imageAlt', event.target.value)} placeholder="Describe the image for screen readers" /></label>
@@ -260,7 +348,7 @@ function ProductForm({ product, categories, onSaved, onCancel }) {
   )
 }
 
-function OfferPackageForm({ offer, onSaved, onCancel }) {
+function OfferPackageForm({ offer, products, onSaved, onCancel }) {
   const [form, setForm] = useState(offer ? formFromOffer(offer) : emptyOfferForm)
   const [error, setError] = useState('')
   const [isSaving, setIsSaving] = useState(false)
@@ -312,6 +400,31 @@ function OfferPackageForm({ offer, onSaved, onCancel }) {
           </div>
         </fieldset>
         <fieldset>
+          <legend>Associated products</legend>
+          {products.length > 0 ? (
+            <div className="offer-product-options">
+              {products.map((product) => (
+                <label key={product._id}>
+                  <input
+                    type="checkbox"
+                    checked={form.products.includes(product._id)}
+                    onChange={() => updateField(
+                      'products',
+                      form.products.includes(product._id)
+                        ? form.products.filter((id) => id !== product._id)
+                        : [...form.products, product._id]
+                    )}
+                  />
+                  <span>{product.name}</span>
+                  <small>{formatMainPrice(product)}</small>
+                </label>
+              ))}
+            </div>
+          ) : (
+            <p className="admin-help">Add products before associating them with this offer.</p>
+          )}
+        </fieldset>
+        <fieldset>
           <legend>Pricing & Discount</legend>
           <div className="admin-field-grid">
             <label>Original Price (৳)<input type="number" min="0" value={form.originalPrice} onChange={(event) => updateField('originalPrice', event.target.value)} placeholder="e.g. 6200" /></label>
@@ -335,6 +448,7 @@ function OfferPackageForm({ offer, onSaved, onCancel }) {
             <ImageUploader
               label="Package image"
               scope="offers"
+              uploadId="offer-image"
               required
               value={form.imageUrl ? { url: form.imageUrl, publicId: form.imagePublicId } : null}
               onBusyChange={setIsUploading}
@@ -745,7 +859,7 @@ function AdminDashboard({ onLogout }) {
 
       {isOfferFormOpen && (
         <div className="admin-form-overlay">
-          <OfferPackageForm offer={editingOffer} onSaved={saveOffer} onCancel={() => setIsOfferFormOpen(false)} />
+          <OfferPackageForm offer={editingOffer} products={products} onSaved={saveOffer} onCancel={() => setIsOfferFormOpen(false)} />
         </div>
       )}
     </main>

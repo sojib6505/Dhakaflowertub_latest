@@ -51,6 +51,35 @@ const productSchema = new mongoose.Schema(
       min: [0, 'Price cannot be negative'],
       default: 0
     },
+    oldPrice: {
+      type: Number,
+      min: [0, 'Old price cannot be negative'],
+      default: 0
+    },
+    variants: [
+      {
+        name: {
+          type: String,
+          required: [true, 'Variant size name is required'],
+          trim: true,
+          maxlength: [80, 'Variant size name cannot exceed 80 characters']
+        },
+        price: {
+          type: Number,
+          required: [true, 'Variant price is required'],
+          min: [0.01, 'Variant price must be positive']
+        },
+        image: {
+          url: { type: String, trim: true, default: '' },
+          alt: { type: String, trim: true, default: '' },
+          publicId: { type: String, trim: true, default: '' }
+        },
+        sortOrder: {
+          type: Number,
+          default: 0
+        }
+      }
+    ],
     priceDisplay: {
       type: String,
       trim: true,

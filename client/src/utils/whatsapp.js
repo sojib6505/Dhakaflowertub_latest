@@ -1,3 +1,5 @@
+import { formatMainPrice, getVariants } from './pricing'
+
 const WHATSAPP_NUMBER = import.meta.env.VITE_WHATSAPP_NUMBER || '8801711292501'
 
 export const getWhatsAppLink = (item, type = 'product') => {
@@ -14,7 +16,16 @@ export const getWhatsAppLink = (item, type = 'product') => {
     return `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(message)}`
   }
 
-  const productMessage = `Hello Dhaka Flower Tub, I am interested in this product.\n\nProduct: ${item.name}\nCategory: ${item.categoryName || item.category}\nPrice: ${item.priceDisplay || (item.price ? `৳ ${item.price.toLocaleString()}` : 'Price on request')}\n\nI would like to know more about this product.`
+  const variants = getVariants(item)
+  const variantText = variants.length > 0
+    ? `\nAvailable sizes:\n${variants.map((variant) => `- ${variant.name}: ৳ ${Number(variant.price).toLocaleString()}`).join('\n')}`
+    : ''
+  const priceText = variants.length > 1
+    ? `Combined total for all listed sizes: ${formatMainPrice(item)}`
+    : variants.length === 1
+      ? `Price: ৳ ${Number(variants[0].price).toLocaleString()}`
+      : `Price: ${formatMainPrice(item)}`
+  const productMessage = `Hello Dhaka Flower Tub, I am interested in this product.\n\nProduct: ${item.name}\nCategory: ${item.categoryName || item.category}\n${priceText}${variantText}\n\nI would like to know more about this product.`
   return `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(productMessage)}`
 }
 

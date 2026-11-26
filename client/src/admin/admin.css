@@ -52,6 +52,19 @@
   .admin-field-grid label { @apply flex flex-col gap-[7px] text-[11px] text-[#6b766d]; }
   .admin-field-grid input, .admin-field-grid textarea, .admin-field-grid select { @apply resize-y rounded-[3px] border border-[#dfe4dc] bg-white px-3 py-[11px] text-xs text-[#1e2c24] outline-none focus:border-[#174d39]; }
   .wide-field { @apply col-span-full max-[700px]:col-auto; }
+  .variant-list { @apply grid gap-[14px]; }
+  .variant-row { @apply grid grid-cols-[minmax(140px,1fr)_150px_minmax(220px,1.4fr)_90px] items-end gap-[12px] border border-[#dfe4dc] bg-white p-[12px] max-[700px]:grid-cols-1; }
+  .variant-row > label { @apply flex flex-col gap-[7px] text-[11px] text-[#6b766d]; }
+  .variant-row > label input { @apply rounded-[3px] border border-[#dfe4dc] px-3 py-[11px] text-xs text-[#1e2c24] outline-none focus:border-[#174d39]; }
+  .variant-image-field { @apply min-w-0; }
+  .variant-image-field .image-uploader { @apply col-auto; }
+  .variant-alt-field { @apply mt-2 flex flex-col gap-[7px] text-[11px] text-[#6b766d]; }
+  .variant-alt-field input { @apply rounded-[3px] border border-[#dfe4dc] px-3 py-[9px] text-xs outline-none focus:border-[#174d39]; }
+  .variant-delete { @apply mb-[2px] justify-center; }
+  .offer-product-options { @apply grid gap-2; }
+  .offer-product-options label { @apply grid grid-cols-[auto_1fr_auto] items-center gap-2 rounded-[3px] border border-[#dfe4dc] bg-white px-3 py-2 text-xs text-[#1e2c24]; }
+  .offer-product-options input { @apply accent-[#174d39]; }
+  .offer-product-options small { @apply text-[10px] text-[#6b766d]; }
   .checkbox-field { @apply !flex-row items-center pt-[22px]; }
   .checkbox-field input { @apply h-[15px] w-[15px] accent-[#174d39]; }
   .admin-help { @apply text-[10px] font-normal normal-case tracking-normal text-[#6b766d]; }

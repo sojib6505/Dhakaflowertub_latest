@@ -1,6 +1,6 @@
 
 import { useEffect, useState } from 'react'
-import { Check, MessageCircle } from 'lucide-react'
+import { MessageCircle } from 'lucide-react'
 import { optimizeImageUrl } from '../utils/images'
 import { getWhatsAppLink } from '../utils/whatsapp'
 
@@ -8,9 +8,10 @@ const prefersReducedMotion = () =>
   typeof window !== 'undefined' &&
   window.matchMedia('(prefers-reduced-motion: reduce)').matches
 
-export default function OfferSlider({ offers = [] }) {
+export default function OfferSlider({ offers = [], onSeeMore }) {
   const [currentIndex, setCurrentIndex] = useState(0)
   const [isPaused, setIsPaused] = useState(false)
+  const [touchStartX, setTouchStartX] = useState(null)
 
   const totalOffers = offers.length
 
@@ -78,7 +79,19 @@ export default function OfferSlider({ offers = [] }) {
         </header>
 
         <div className="offer-carousel">
-          <div className="offer-product-track">
+          <div
+            className="offer-product-track"
+            onTouchStart={(event) => setTouchStartX(event.touches[0]?.clientX ?? null)}
+            onTouchEnd={(event) => {
+              if (touchStartX === null) return
+              const endX = event.changedTouches[0]?.clientX ?? touchStartX
+              const distance = endX - touchStartX
+              if (Math.abs(distance) >= 40) {
+                setCurrentIndex((prev) => (prev + (distance < 0 ? 1 : -1) + totalOffers) % totalOffers)
+              }
+              setTouchStartX(null)
+            }}
+          >
 
             {visibleOffers.map(({ offer, offerIndex, offset }) => {
               const isCenter = offset === 0
@@ -168,19 +181,6 @@ export default function OfferSlider({ offers = [] }) {
 
                       <div className="offer-product-footer">
 
-                        <div className="offer-product-pricing">
-                          {offer.originalPrice > 0 && (
-                            <span className="offer-old-price">
-                              ৳{offer.originalPrice.toLocaleString()}
-                            </span>
-                          )}
-
-                          <span className="offer-current-price">
-                            {offer.priceDisplay ||
-                              `৳${offer.offerPrice?.toLocaleString()}`}
-                          </span>
-                        </div>
-
                         <a
                           href={getWhatsAppLink(offer, 'offer')}
                           className="offer-whatsapp-btn"
@@ -203,6 +203,14 @@ export default function OfferSlider({ offers = [] }) {
 
           </div>
         </div>
+
+        {onSeeMore && (
+          <div className="offers-see-more-wrap">
+            <button type="button" className="offers-see-more-button" onClick={onSeeMore}>
+              See More
+            </button>
+          </div>
+        )}
 
         {totalOffers > 1 && (
           <div className="offer-pagination">

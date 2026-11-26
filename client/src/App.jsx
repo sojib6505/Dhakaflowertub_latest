@@ -17,30 +17,26 @@ import OfferSlider from "./components/OfferSlider";
 import ProductDetailsModal from "./components/ProductDetailsModal";
 import { API_URL, BUSINESS_VIDEO, CORPORATE_IMAGES } from "./config/api";
 import useReveal from "./hooks/useReveal";
-import { CATEGORY_FALLBACK_IMAGES, DEFAULT_CATEGORIES } from "./utils/categories";
+import { DEFAULT_CATEGORIES } from "./utils/categories";
 import { optimizeImageUrl } from "./utils/images";
+import { formatMainPrice, getOldPrice, getVariants } from "./utils/pricing";
 import { getWhatsAppLink } from "./utils/whatsapp";
 import "./App.css";
 import Logo from "./components/Logo";
-
-const formatPrice = (product) => {
-  if (product.priceDisplay) return product.priceDisplay;
-  if (product.isPriceCustom || !product.price) return "Price on request";
-  return `৳ ${product.price.toLocaleString()}`;
-};
 
 function App() {
   const [rawProducts, setRawProducts] = useState([]);
   const [categories, setCategories] = useState(DEFAULT_CATEGORIES);
   const [offerPackages, setOfferPackages] = useState([]);
-  const [activeCategory, setActiveCategory] = useState(DEFAULT_CATEGORIES[0].key);
-  const [showAllProducts, setShowAllProducts] = useState(false);
+  const [activeCategory, setActiveCategory] = useState("");
+  const [showAllProducts, setShowAllProducts] = useState(true);
   const [search, setSearch] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
   const [menuOpen, setMenuOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState(null);
+  const [showAllOffers, setShowAllOffers] = useState(false);
 
   // Corporate slider
   const [activeCorporateImage, setActiveCorporateImage] = useState(0);
@@ -123,62 +119,55 @@ function App() {
     [rawProducts, categoryByKey]
   );
 
-  // One card per category, each with one representative product image.
-  // A product's count is incremented for every category it belongs to.
-  const categoryCards = useMemo(() => {
-    return categories.map((category) => {
-      const matchingProducts = products.filter(
-        (p) => Array.isArray(p.categories) && p.categories.includes(category.key)
-      );
-      return {
-        key: category.key,
-        name: category.name,
-        description: category.description,
-        count: matchingProducts.length,
-        image: matchingProducts[0]?.images?.[0]?.url || CATEGORY_FALLBACK_IMAGES[category.key],
-      };
-    });
-  }, [categories, products]);
-
   const activeCategoryName = categoryByKey[activeCategory]?.name || "";
 
-  // Filtered products for shared display area
-  const displayedProducts = useMemo(() => {
+  // Filtered products for shared display area. Search and category remain combined.
+  const filteredProducts = useMemo(() => {
     const term = search.trim().toLowerCase();
-    if (term) {
-      return products.filter((product) => {
-        // Build a text blob that includes all assigned category names
-        const catNames = Array.isArray(product.categories)
-          ? product.categories.map((k) => categoryByKey[k]?.name || k).join(' ')
-          : (product.categoryName || '');
-        const text =
-          `${product.name} ${product.shortDescription || ''} ${catNames} ${product.material || ''}`.toLowerCase();
-        return text.includes(term);
-      });
-    }
-
-    if (showAllProducts) {
-      return products;
-    }
-
-    // A product appears in a category view if its categories array includes the active key.
-    // De-duplicate by _id / slug in case of corrupted data.
     const seen = new Set();
+
     return products.filter((product) => {
       const id = product._id || product.slug;
       if (seen.has(id)) return false;
-      const inCategory = Array.isArray(product.categories) && product.categories.includes(activeCategory);
-      if (inCategory) { seen.add(id); return true; }
-      return false;
+
+      const inCategory = showAllProducts || !activeCategory
+        ? true
+        : Array.isArray(product.categories) && product.categories.includes(activeCategory);
+      if (!inCategory) return false;
+
+      if (term) {
+        const catNames = Array.isArray(product.categories)
+          ? product.categories.map((key) => categoryByKey[key]?.name || key).join(' ')
+          : (product.categoryName || '');
+        const text = `${product.name} ${product.shortDescription || ''} ${catNames} ${product.material || ''}`.toLowerCase();
+        if (!text.includes(term)) return false;
+      }
+
+      seen.add(id);
+      return true;
     });
   }, [products, search, showAllProducts, activeCategory, categoryByKey]);
 
+  const [isMobileViewport, setIsMobileViewport] = useState(() => window.matchMedia('(max-width: 620px)').matches);
+  const [visibleProductCount, setVisibleProductCount] = useState(() => window.matchMedia('(max-width: 620px)').matches ? 10 : 15);
+
+  useEffect(() => {
+    const media = window.matchMedia('(max-width: 620px)')
+    const handleChange = (event) => {
+      setIsMobileViewport(event.matches)
+      setVisibleProductCount(event.matches ? 10 : 15)
+    }
+    media.addEventListener('change', handleChange)
+    return () => media.removeEventListener('change', handleChange)
+  }, [])
+
+  const displayedProducts = useMemo(
+    () => filteredProducts.slice(0, visibleProductCount),
+    [filteredProducts, visibleProductCount]
+  );
+
   const featuredProduct = useMemo(() => {
     return products.find((p) => p.isFeatured) || products[0];
-  }, [products]);
-
-  const heroShelfProducts = useMemo(() => {
-    return products.slice(1, 4);
   }, [products]);
 
   // Corporate image slider timer (skipped for visitors who prefer reduced motion)
@@ -208,28 +197,21 @@ useEffect(() => {
     );
   };
 
-  // const handleSelectCategory = (categoryKey) => {
-  //   setActiveCategory(categoryKey);
-  //   setShowAllProducts(false);
-  //   setSearch("");
-  // };
-
   const handleSelectCategory = (categoryKey) => {
-  setActiveCategory(categoryKey);
-  setShowAllProducts(false);
-  setSearch("");
-
-  setTimeout(() => {
-    document.getElementById("product-panel")?.scrollIntoView({
-      behavior: "smooth",
-      block: "start",
-    });
-  }, 100);
-};
+    setActiveCategory(categoryKey);
+    setShowAllProducts(false);
+    setVisibleProductCount(isMobileViewport ? 10 : 15);
+  };
 
   const handleToggleAllProducts = () => {
-    setShowAllProducts((prev) => !prev);
-    setSearch("");
+    setShowAllProducts(true);
+    setActiveCategory("");
+    setVisibleProductCount(isMobileViewport ? 10 : 15);
+  };
+
+  const handleSearchChange = (value) => {
+    setSearch(value);
+    setVisibleProductCount(isMobileViewport ? 10 : 15);
   };
 
   return (
@@ -364,31 +346,103 @@ useEffect(() => {
         </section>
 
         {/* Special offers (managed from the admin dashboard) */}
-        <OfferSlider offers={offerPackages} />
+        <OfferSlider
+          offers={offerPackages}
+          onSeeMore={() => {
+            setShowAllOffers(true)
+            window.setTimeout(() => document.getElementById("all-offers")?.scrollIntoView({ behavior: "smooth", block: "start" }), 50)
+          }}
+        />
 
-        {/* Collections: four business categories + shared product display */}
+        {showAllOffers && (
+          <section className="section all-offers-section" id="all-offers">
+            <div className="section-inner">
+              <header className="all-offers-heading">
+                <div>
+                  <p className="offers-eyebrow">Complete collection</p>
+                  <h2>All Offer Packages</h2>
+                </div>
+                <button type="button" className="all-offers-close" onClick={() => setShowAllOffers(false)}>Close</button>
+              </header>
+              <div className="all-offers-grid">
+                {offerPackages.map((offer) => (
+                  <article className="all-offer-card" key={offer._id || offer.slug}>
+                    {offer.image?.url && (
+                      <img src={optimizeImageUrl(offer.image.url, 700)} alt={offer.image.alt || offer.title} loading="lazy" />
+                    )}
+                    <div className="all-offer-content">
+                      {offer.badge && <span className="all-offer-badge">{offer.badge}</span>}
+                      <h3>{offer.title}</h3>
+                      {offer.subtitle && <p className="all-offer-subtitle">{offer.subtitle}</p>}
+                      {offer.description && <p className="all-offer-description">{offer.description}</p>}
+                      {offer.originalPrice > 0 && <span className="all-offer-old-price">৳ {offer.originalPrice.toLocaleString()}</span>}
+                      <span className="all-offer-price">{offer.priceDisplay || (offer.offerPrice ? `৳ ${offer.offerPrice.toLocaleString()}` : 'Price on request')}</span>
+                      {offer.discountType !== 'none' && offer.discountValue > 0 && (
+                        <span className="all-offer-discount">
+                          {offer.discountType === 'percentage'
+                            ? `${offer.discountValue}% off`
+                            : `Save ৳ ${Number(offer.discountValue).toLocaleString()}`}
+                        </span>
+                      )}
+                      {(offer.startDate || offer.endDate) && (
+                        <div className="all-offer-dates">
+                          {offer.startDate && <span>Starts {new Date(offer.startDate).toLocaleDateString()}</span>}
+                          {offer.endDate && <span>Ends {new Date(offer.endDate).toLocaleDateString()}</span>}
+                        </div>
+                      )}
+                      {offer.features?.length > 0 && (
+                        <ul className="all-offer-features">
+                          {offer.features.map((feature) => <li key={feature}>{feature}</li>)}
+                        </ul>
+                      )}
+                      {(Array.isArray(offer.products) ? offer.products.filter(Boolean) : []).map((product) => (
+                        <div className="all-offer-product" key={product._id || product.slug}>
+                          <strong>{product.name}</strong>
+                          {getVariants(product).length > 0 ? (
+                            <div className="all-offer-variants">
+                              {getVariants(product).map((variant) => (
+                                <span key={variant._id || `${variant.name}-${variant.price}`}>
+                                  {variant.name} — ৳ {Number(variant.price).toLocaleString()}
+                                </span>
+                              ))}
+                              <span className="all-offer-variant-total">
+                                {getVariants(product).length > 1 ? 'Combined total (all sizes)' : 'Price'} — {formatMainPrice(product)}
+                              </span>
+                            </div>
+                          ) : (
+                            <span>{product.priceDisplay || (product.price ? `৳ ${product.price.toLocaleString()}` : 'Price on request')}</span>
+                          )}
+                        </div>
+                      ))}
+                      <a className="all-offer-whatsapp" href={getWhatsAppLink(offer, 'offer')} target="_blank" rel="noreferrer">Order on WhatsApp</a>
+                    </div>
+                  </article>
+                ))}
+              </div>
+            </div>
+          </section>
+        )}
+
+        {/* Product catalogue and category filters */}
         <section className="section pt-10 collections" id="categories">
           <div className="section-inner">
             <header className="section-head" data-reveal>
               <div className="section-head-copy mt-0">
-                <h2 className="text-3xl font-bold">Browse by category</h2>
-                <p className="section-lead">
-                  Select a category to see its pieces below.
-                </p>
+                <h2 className="text-3xl font-bold">Shop the Collection</h2>
               </div>
 
               <div className="search-field">
                 <Search size={16} aria-hidden="true" />
                 <input
                   value={search}
-                  onChange={(e) => setSearch(e.target.value)}
+                  onChange={(e) => handleSearchChange(e.target.value)}
                   placeholder="Search planters"
                   aria-label="Search all products"
                 />
                 {search && (
                   <button
                     type="button"
-                    onClick={() => setSearch("")}
+                    onClick={() => handleSearchChange("")}
                     className="search-clear"
                     aria-label="Clear search"
                   >
@@ -398,58 +452,7 @@ useEffect(() => {
               </div>
             </header>
 
-          <div
-  className="grid grid-cols-4 lg:grid-cols-7 gap-1.5 sm:gap-2 md:gap-3"
-  role="tablist"
-  aria-label="Product categories"
-  data-reveal
->
-  {categoryCards.map((cat) => {
-    const isSelected =
-      !showAllProducts && !search && activeCategory === cat.key;
-
-    return (
-      <button
-        type="button"
-        role="tab"
-        key={cat.key}
-        aria-selected={isSelected}
-        aria-controls="product-panel"
-        onClick={() => handleSelectCategory(cat.key)}
-        className={`min-w-0 overflow-hidden rounded-lg border text-left transition-all duration-200 ${
-          isSelected
-            ? "border-black bg-gray-50 shadow-sm"
-            : "border-gray-200 bg-white hover:border-gray-400 hover:shadow-sm"
-        }`}
-      >
-        <span className="flex h-full min-h-[75px] flex-col justify-center gap-1 p-1.5 sm:min-h-[90px] sm:p-2 md:p-3">
-          {/* Category name */}
-          <span
-            className={`line-clamp-2 text-[10px] font-semibold leading-tight sm:text-xs md:text-sm ${
-              isSelected ? "text-black" : "text-gray-800"
-            }`}
-          >
-            {cat.name}
-          </span>
-
-          {/* Description */}
-          {cat.description && (
-            <span className="line-clamp-2 text-[8px] leading-tight text-gray-500 sm:text-[10px] md:text-xs">
-              {cat.description}
-            </span>
-          )}
-
-          {/* Product count */}
-          <span className="mt-0.5 text-[8px] text-gray-400 sm:text-[10px]">
-            {cat.count} {cat.count === 1 ? "design" : "designs"}
-          </span>
-        </span>
-      </button>
-    );
-  })}
-</div>
-
-            <div className="shared-product-display-area" id="product-panel" role="tabpanel">
+            <div className="shared-product-display-area">
               <div className="shared-area-header">
                 <div className="shared-area-title-group">
                   <h3>
@@ -460,19 +463,41 @@ useEffect(() => {
                       : activeCategoryName}
                   </h3>
                   <span className="shared-count-badge">
-                    {displayedProducts.length} {displayedProducts.length === 1 ? "item" : "items"}
+                    {filteredProducts.length} {filteredProducts.length === 1 ? "item" : "items"}
                   </span>
                 </div>
-
-                <button
-                  type="button"
-                  className={`all-products-toggle-btn ${showAllProducts ? "is-active" : ""}`}
-                  onClick={handleToggleAllProducts}
-                >
-                  {showAllProducts ? "Show selected category" : "View all products"}
-                </button>
               </div>
 
+              <nav className="product-category-nav" role="tablist" aria-label="Product categories">
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={showAllProducts}
+                  aria-controls="product-panel"
+                  className={`product-category-link${showAllProducts ? " is-active" : ""}`}
+                  onClick={handleToggleAllProducts}
+                >
+                  All Products
+                </button>
+                {categories.map((category) => {
+                  const isSelected = !showAllProducts && activeCategory === category.key;
+                  return (
+                    <button
+                      type="button"
+                      role="tab"
+                      key={category.key}
+                      aria-selected={isSelected}
+                      aria-controls="product-panel"
+                      className={`product-category-link${isSelected ? " is-active" : ""}`}
+                      onClick={() => handleSelectCategory(category.key)}
+                    >
+                      {category.name}
+                    </button>
+                  );
+                })}
+              </nav>
+
+              <div id="product-panel" role="tabpanel">
               {isLoading && <p className="catalogue-message">Loading the catalogue...</p>}
               {error && <p className="catalogue-message error-message">{error}</p>}
 
@@ -498,7 +523,15 @@ useEffect(() => {
                     </button>
                     <div className="product-info">
                       <h3>{product.name}</h3>
-                      <p className="product-price">{formatPrice(product)}</p>
+                      <div className="product-price">
+                        {getOldPrice(product) > 0 && (
+                          <span className="product-old-price">৳ {getOldPrice(product).toLocaleString()}</span>
+                        )}
+                        <span className="product-current-price">{formatMainPrice(product)}</span>
+                        {getVariants(product).length > 1 && (
+                          <span className="product-price-caption">Total for all sizes</span>
+                        )}
+                      </div>
                       <div className="product-actions">
                         <button
                           type="button"
@@ -519,6 +552,16 @@ useEffect(() => {
                     </div>
                   </article>
                 ))}
+              </div>
+              {filteredProducts.length > displayedProducts.length && (
+                <button
+                  type="button"
+                  className="see-more-products-button"
+                  onClick={() => setVisibleProductCount((count) => count + (isMobileViewport ? 10 : 15))}
+                >
+                  See More
+                </button>
+              )}
               </div>
             </div>
           </div>

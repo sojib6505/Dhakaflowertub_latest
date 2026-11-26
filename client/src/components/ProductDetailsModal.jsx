@@ -2,17 +2,12 @@ import { useEffect, useState } from 'react'
 import { ArrowUpRight, Check, MessageCircle, Sparkles, X } from 'lucide-react'
 import { optimizeImageUrl } from '../utils/images'
 import { getWhatsAppLink, getWhatsAppNumber } from '../utils/whatsapp'
+import { formatMainPrice, getOldPrice, getVariants } from '../utils/pricing'
 
 const availabilityLabels = {
   in_stock: 'In stock · Ready to dispatch',
   made_to_order: 'Made to order · Handcrafted',
   out_of_stock: 'Currently unavailable',
-}
-
-const formatPrice = (product) => {
-  if (product.priceDisplay) return product.priceDisplay
-  if (product.isPriceCustom || !product.price) return 'Price on request'
-  return `৳ ${product.price.toLocaleString()}`
 }
 
 function ProductDetailsModal({ product, onClose }) {
@@ -121,9 +116,6 @@ function ProductDetailsModal({ product, onClose }) {
               const cats = Array.isArray(product.categories) && product.categories.length > 0
                 ? product.categories
                 : (product.category ? [product.category] : []);
-              const label = cats.length > 0
-                ? cats.map((k) => product.categoryName || k).join(', ')
-                : (product.categoryName || product.category || '');
               // For multi-category products, build a comma list of names
               // We only have categoryName for the primary; just show comma-sep keys if more than one
               const displayLabel = cats.length > 1
@@ -140,15 +132,34 @@ function ProductDetailsModal({ product, onClose }) {
           <h2 id="product-modal-title" className="modal-product-title">{product.name}</h2>
 
           <div className="modal-price-box">
-            <span className="price-main">{formatPrice(product)}</span>
-            {product.price && !product.isPriceCustom && (
-              <span className="price-caption">VAT included · Direct workshop pricing</span>
+            {getOldPrice(product) > 0 && (
+              <span className="price-old">৳ {getOldPrice(product).toLocaleString()}</span>
             )}
+            <span className="price-main">{formatMainPrice(product)}</span>
+            {getVariants(product).length > 1
+              ? <span className="price-caption">Combined total for all sizes</span>
+              : ((getOldPrice(product) > 0) || getVariants(product).length > 0 || (getVariants(product).length === 0 && product.price)) && !product.isPriceCustom
+                ? <span className="price-caption">VAT included · Direct workshop pricing</span>
+                : null}
           </div>
 
           <p className="modal-description">
             {product.description || product.shortDescription || 'Hand-finished architectural planter made for residential terraces, interior lounges, and boutique commercial spaces.'}
           </p>
+
+          {getVariants(product).length > 0 && (
+            <div className="modal-block variant-pricing-list">
+              <p className="detail-label">Available Sizes &amp; Prices</p>
+              <div>
+                {getVariants(product).map((variant) => (
+                  <div className="variant-price-row" key={variant._id || `${variant.name}-${variant.price}`}>
+                    <span>{variant.name}</span>
+                    <strong>৳ {Number(variant.price).toLocaleString()}</strong>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Key attributes grid */}
           <div className="modal-details-grid">

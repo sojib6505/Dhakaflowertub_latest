@@ -9,7 +9,7 @@ import { IMAGE_TYPES, MAX_IMAGE_BYTES, uploadImage, validateImageFile } from './
  * onChange: called with { url, publicId } after a successful upload, or null when removed
  * scope:    'products' | 'offers'       (upload folder)
  */
-export default function ImageUploader({ label, scope, value, onChange, onBusyChange, required = false }) {
+export default function ImageUploader({ label, scope, value, onChange, onBusyChange, uploadId, required = false }) {
   const inputRef = useRef(null)
   const uploadRef = useRef(null)
   const [localPreview, setLocalPreview] = useState('')
@@ -21,7 +21,12 @@ export default function ImageUploader({ label, scope, value, onChange, onBusyCha
   // Release object URLs and cancel any upload still running when the form closes.
   useEffect(() => () => uploadRef.current?.cancel(), [])
   useEffect(() => () => { if (localPreview) URL.revokeObjectURL(localPreview) }, [localPreview])
-  useEffect(() => { onBusyChange?.(isUploading) }, [isUploading, onBusyChange])
+  useEffect(() => {
+    onBusyChange?.(isUploading, uploadId)
+    return () => {
+      if (isUploading) onBusyChange?.(false, uploadId)
+    }
+  }, [isUploading, onBusyChange, uploadId])
 
   const startUpload = async (file) => {
     const validationError = validateImageFile(file)

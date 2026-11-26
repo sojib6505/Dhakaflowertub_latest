@@ -1,4 +1,5 @@
 import OfferPackage from '../models/OfferPackage.js';
+import Product from '../models/Product.js';
 import { seedOffers as fallbackOffers } from '../data/seedOffers.js';
 import { getDBStatus } from '../config/db.js';
 import { destroyImages } from '../utils/cloudinary.js';
@@ -14,7 +15,7 @@ import {
 
 const EDITABLE_FIELDS = [
   'title', 'slug', 'subtitle', 'description', 'image', 'discountType', 'discountValue', 'originalPrice',
-  'offerPrice', 'priceDisplay', 'badge', 'features', 'isActive', 'sortOrder'
+  'offerPrice', 'priceDisplay', 'badge', 'features', 'products', 'isActive', 'sortOrder'
 ];
 
 const imageIds = (offer) => (offer?.image?.publicId ? [offer.image.publicId] : []);
@@ -38,6 +39,16 @@ const buildOfferData = (body, { partial }) => {
   }
 
   if (data.features !== undefined) data.features = cleanStringList(data.features);
+  if (data.products !== undefined) {
+    if (!Array.isArray(data.products)) return { error: 'Products must be a list.' };
+    const productIds = [];
+    for (const product of data.products) {
+      const id = typeof product === 'object' && product !== null ? product._id : product;
+      if (!isObjectId(id)) return { error: 'Each associated product must have a valid ID.' };
+      productIds.push(String(id));
+    }
+    data.products = [...new Set(productIds)];
+  }
   ['discountValue', 'originalPrice', 'offerPrice', 'sortOrder'].forEach((field) => {
     if (data[field] !== undefined) data[field] = Number(data[field]) || 0;
   });
@@ -59,6 +70,12 @@ const buildOfferData = (body, { partial }) => {
   if (data.isActive !== undefined) data.isActive = Boolean(data.isActive);
 
   return { data };
+};
+
+const validateProductReferences = async (productIds) => {
+  if (productIds === undefined || productIds.length === 0) return null;
+  const count = await Product.countDocuments({ _id: { $in: productIds } });
+  return count === productIds.length ? null : 'One or more associated products do not exist.';
 };
 
 // @desc    Get all offer packages
@@ -89,7 +106,7 @@ export const getOfferPackages = async (req, res, next) => {
       if (sort === 'newest') sortOption = { createdAt: -1 };
 
       const packages = await OfferPackage.find(query)
-        .populate('products', 'name slug price images category')
+        .populate('products', 'name slug price oldPrice variants priceDisplay images category categories')
         .sort(sortOption);
 
       return res.json({
@@ -196,6 +213,8 @@ export const createOfferPackage = async (req, res, next) => {
 
     const { data, error } = buildOfferData(req.body, { partial: false });
     if (error) return res.status(400).json({ success: false, message: error });
+    const productError = await validateProductReferences(data.products);
+    if (productError) return res.status(400).json({ success: false, message: productError });
 
     // A blank slug field must fall back to the title-based slug.
     const slug = generateSlug(data.slug) || slugOrFallback(data.title, 'offer');
@@ -233,6 +252,8 @@ export const updateOfferPackage = async (req, res, next) => {
 
     const { data, error } = buildOfferData(req.body, { partial: true });
     if (error) return res.status(400).json({ success: false, message: error });
+    const productError = await validateProductReferences(data.products);
+    if (productError) return res.status(400).json({ success: false, message: productError });
 
     // Cross-field rules also need to hold when only one of the fields is being changed.
     const originalPrice = data.originalPrice ?? existing.originalPrice;
